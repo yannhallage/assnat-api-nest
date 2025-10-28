@@ -1,4 +1,6 @@
-import { Controller, Get, Put, Delete, Body, Param, Logger } from '@nestjs/common';
+import { Controller, Get, Put, Post, Delete, Body, Param, Logger } from '@nestjs/common';
+import { InvitePersonnelDto } from './dto/Inviter.dto'
+
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { ChefdeserviceService } from './chefdeservice.service';
 import { ApproveDemandeDto, RejectDemandeDto } from './dto/chef.dto';
@@ -19,6 +21,21 @@ export class ChefdeserviceController {
   private readonly logger = new Logger(ChefdeserviceController.name);
 
   constructor(private readonly chefdeserviceService: ChefdeserviceService) { }
+
+
+  // -----------------------------
+  // Inviter un personnel
+  // -----------------------------
+  @Post('personnel/invite')
+  @ApiOperation({ summary: 'Inviter un personnel dans le service' })
+  @ApiResponse({ status: 201, description: 'Invitation envoyée avec succès' })
+  async invitePersonnel(
+    @Body() inviteDto: InvitePersonnelDto,
+    @Body('chef') chef: ChefWithRelations,
+  ) {
+    this.logger.log(`Invitation envoyée par ${chef.email_travail} à ${inviteDto.email_travail}`);
+    return this.chefdeserviceService.invitePersonnel(chef, inviteDto);
+  }
 
   // -----------------------------
   // Consulter toutes les demandes du service

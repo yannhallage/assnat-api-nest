@@ -1,9 +1,11 @@
 import { Injectable, NotFoundException, BadRequestException, Logger, ForbiddenException } from '@nestjs/common';
 // import { AuthService } from '../auth/auth.service';
-import { ApproveDemandeDto, RejectDemandeDto, InvitePersonnelDto } from './dto/chef.dto';
-import type { Personnel } from '@prisma/client';// import * as bcrypt from 'bcryptjs';
+import { ApproveDemandeDto, RejectDemandeDto } from './dto/chef.dto';
+import type { Personnel } from '@prisma/client';
+import * as bcrypt from 'bcryptjs'
 import { PrismaService } from 'src/shared/prisma/prisma.service';
 import { EmailService } from 'src/shared/mail/mail.service';
+import { InvitePersonnelDto } from './dto/Inviter.dto';
 
 @Injectable()
 export class ChefdeserviceService {
@@ -206,72 +208,47 @@ export class ChefdeserviceService {
     return { message: 'Demande supprimée avec succès' };
   }
 
-  // async invitePersonnel(chef: Personnel, inviteDto: InvitePersonnelDto) {
-  //   this.logger.log(`Invitation d'un nouveau personnel par le chef ${chef.email_travail}`);
+  async invitePersonnel(chef: any, dto: InvitePersonnelDto) {
+    this.logger.log(`Chef ${chef.email_travail} invite ${dto.email_travail}`);
 
-  //   // Vérifier que l'email n'existe pas déjà
-  //   const existingPersonnel = await this.prisma.personnel.findFirst({
-  //     where: {
-  //       OR: [
-  //         { email_travail: inviteDto.email_travail },
-  //         { email_personnel: inviteDto.email_personnel },
-  //       ],
-  //     },
-  //   });
+    if (!chef?.id_service) {
+      throw new BadRequestException('Chef de service invalide');
+    }
 
-  //   if (existingPersonnel) {
-  //     throw new BadRequestException('Un personnel avec cet email existe déjà');
-  //   }
+    // Vérifier si le personnel existe déjà
+    const existing = await this.prisma.personnel.findFirst({
+      where: { email_travail: dto.email_travail },
+    });
+    if (existing) {
+      throw new BadRequestException('Le personnel existe déjà');
+    }
 
-  //   // Générer un mot de passe temporaire
-  //   const temporaryPassword = await this.authService.generateTemporaryPassword();
+    // Générer un mot de passe temporaire
+    const tempPassword = Math.random().toString(36).slice(-8);
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
-  //   // Créer le personnel
-  //   const newPersonnel = await this.prisma.personnel.create({
-  //     data: {
-  //       nom_personnel: inviteDto.nom_personnel,
-  //       prenom_personnel: inviteDto.prenom_personnel,
-  //       email_travail: inviteDto.email_travail,
-  //       email_personnel: inviteDto.email_personnel,
-  //       password: await bcrypt.hash(temporaryPassword, 10),
-  //       matricule_personnel: inviteDto.matricule_personnel,
-  //       telephone_travail: inviteDto.telephone_travail,
-  //       telephone_personnel: inviteDto.telephone_personnel,
-  //       type_personnel: inviteDto.type_personnel,
-  //       role_personnel: RolePersonnel.EMPLOYE,
-  //       id_service: chef.id_service,
-  //     },
-  //   });
+    // Créer le personnel
+    const personnel = await this.prisma.personnel.create({
+      data: {
+        ...dto,
+        password: hashedPassword,
+        id_service: chef.id_service,
+        is_active: true,
+      },
+    });
 
-  //   // Envoyer l'email d'invitation
-  //   await this.emailService.sendInvitationEmail(
-  //     inviteDto.email_travail,
-  //     temporaryPassword,
-  //     inviteDto.nom_personnel,
-  //     inviteDto.prenom_personnel,
-  //   );
+    // Envoyer l’email d’invitation
+    await this.emailService.sendInvitationEmail(
+      dto.email_travail,
+      tempPassword,
+      dto.nom_personnel,
+      dto.prenom_personnel
+    );
 
-  //   // Mettre à jour le nombre de personnel du service
-  //   await this.prisma.service.update({
-  //     where: { id_service: chef.id_service },
-  //     data: {
-  //       nb_personnel: {
-  //         increment: 1,
-  //       },
-  //     },
-  //   });
+    return { message: 'Invitation envoyée', personnelId: personnel.id_personnel };
+  }
 
-  //   this.logger.log(`Personnel invité avec succès: ${newPersonnel.email_travail}`);
-  //   return {
-  //     message: 'Personnel invité avec succès',
-  //     personnel: {
-  //       id: newPersonnel.id_personnel,
-  //       nom: newPersonnel.nom_personnel,
-  //       prenom: newPersonnel.prenom_personnel,
-  //       email: newPersonnel.email_travail,
-  //     },
-  //   };
-  // }
+
 
   async getServicePersonnel(chef: Personnel) {
     this.logger.log(`Récupération du personnel du service pour le chef ${chef.email_travail}`);

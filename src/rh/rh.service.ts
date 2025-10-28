@@ -5,12 +5,16 @@ import { CreateServiceDto } from './dto/create-service.dto';
 import { CreatePersonnelDto } from './dto/create-personnel.dto';
 import { CreateAlertDto } from './dto/create-alert.dto';
 import { UpdatePersonnelDto } from './dto/update-personnel.dto';
+import { EmailService } from 'src/shared/mail/mail.service';
 
 @Injectable()
 export class RhService {
   private readonly logger = new Logger(RhService.name);
 
-  constructor(private prisma: PrismaService) { }
+  constructor(
+    private prisma: PrismaService,
+    private emailService: EmailService,
+  ) { }
 
   // -----------------------------
   // Directions
@@ -55,10 +59,33 @@ export class RhService {
   }
 
   // -----------------------------
-  // Personnel
+  // Créer un personnel et envoyer un email de notification
   // -----------------------------
   async createPersonnel(dto: CreatePersonnelDto) {
-    return this.prisma.personnel.create({ data: dto });
+    // Créer le personnel dans la base
+    const personnel = await this.prisma.personnel.create({
+      data: dto,
+      include: { service: true },
+    });
+
+    const message = `
+      <p>Bonjour ${personnel.prenom_personnel} ${personnel.nom_personnel},</p>
+      <p>Votre compte a été créé avec succès dans le système de gestion des congés.</p>
+      <p>Vous pouvez maintenant accéder à votre interface dédiée.</p>
+    `;
+
+    try {
+      await this.emailService.sendNotificationEmail(
+        personnel.email_travail!,
+        'Bienvenue dans le système de gestion des congés',
+        message,
+      );
+    } catch (error) {
+      console.error(`Erreur lors de l'envoi de l'email à ${personnel.email_travail}:`, error);
+      // L'échec de l'email ne bloque pas la création du personnel
+    }
+
+    return personnel;
   }
 
   async getAllPersonnel() {
