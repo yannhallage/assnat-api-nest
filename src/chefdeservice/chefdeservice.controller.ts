@@ -1,7 +1,7 @@
-import { Controller, Get, Put, Post, Delete, Body, Param, Logger } from '@nestjs/common';
+import { Controller, Get, Put, Post, Query, Delete, Body, Param, Logger, BadRequestException } from '@nestjs/common';
 import { InvitePersonnelDto } from './dto/Inviter.dto'
 
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiParam, ApiQuery, ApiBody, ApiResponse } from '@nestjs/swagger';
 import { ChefdeserviceService } from './chefdeservice.service';
 import { ApproveDemandeDto, RejectDemandeDto } from './dto/chef.dto';
 import type { Personnel } from '@prisma/client';
@@ -22,19 +22,32 @@ export class ChefdeserviceController {
 
   constructor(private readonly chefdeserviceService: ChefdeserviceService) { }
 
-
   // -----------------------------
   // Inviter un personnel
   // -----------------------------
   @Post('personnel/invite')
   @ApiOperation({ summary: 'Inviter un personnel dans le service' })
+  @ApiBody({
+    description: 'Informations pour inviter un nouveau personnel',
+    type: InvitePersonnelDto,
+    examples: {
+      exemple: {
+        value: {
+          nom_personnel: 'Doe',
+          prenom_personnel: 'John',
+          email_personnel: 'john.doe@assnat.qc.ca',
+          role_personnel: 'EMPLOYE',
+          type_personnel: 'PERMANENT',
+        },
+      },
+    },
+  })
   @ApiResponse({ status: 201, description: 'Invitation envoyée avec succès' })
+  @ApiResponse({ status: 400, description: 'Requête invalide' })
   async invitePersonnel(
     @Body() inviteDto: InvitePersonnelDto,
-    @Body('chef') chef: ChefWithRelations,
   ) {
-    this.logger.log(`Invitation envoyée par ${chef.email_travail} à ${inviteDto.email_travail}`);
-    return this.chefdeserviceService.invitePersonnel(chef, inviteDto);
+    return this.chefdeserviceService.invitePersonnel(inviteDto);
   }
 
   // -----------------------------
@@ -43,9 +56,11 @@ export class ChefdeserviceController {
   @Get('demandes')
   @ApiOperation({ summary: 'Consulter toutes les demandes de son service' })
   @ApiResponse({ status: 200, description: 'Liste des demandes du service' })
-  async getServiceDemandes(@Body('chef') chef: ChefWithRelations) {
-    this.logger.log(`Récupération des demandes du service par ${chef.email_travail}`);
-    return this.chefdeserviceService.getServiceDemandes(chef);
+  @ApiResponse({ status: 404, description: 'Chef non trouvé ou service vide' })
+  @ApiQuery({ name: 'id_chef', description: 'ID du chef de service', required: true, example: 'uuid-chef' })
+  async getServiceDemandes(@Query('id_chef') id_chef: string) {
+    this.logger.log(`Récupération des demandes du service pour le chef ${id_chef}`);
+    return this.chefdeserviceService.getServiceDemandes(id_chef);
   }
 
   // -----------------------------
@@ -59,7 +74,7 @@ export class ChefdeserviceController {
     @Body() approveDto: ApproveDemandeDto,
     @Body('chef') chef: ChefWithRelations,
   ) {
-    this.logger.log(`Approbation de la demande ${demandeId} par ${chef.email_travail}`);
+    this.logger.log(`Approbation de la demande`);
     return this.chefdeserviceService.approveDemande(chef, demandeId, approveDto);
   }
 
@@ -74,7 +89,7 @@ export class ChefdeserviceController {
     @Body() rejectDto: RejectDemandeDto,
     @Body('chef') chef: ChefWithRelations,
   ) {
-    this.logger.log(`Refus de la demande ${demandeId} par ${chef.email_travail}`);
+    this.logger.log(`Refus de la demande`);
     return this.chefdeserviceService.rejectDemande(chef, demandeId, rejectDto);
   }
 
@@ -109,11 +124,48 @@ export class ChefdeserviceController {
   // -----------------------------
   // Consulter le personnel du service
   // -----------------------------
-  @Get('personnel')
-  @ApiOperation({ summary: 'Consulter le personnel de son service' })
-  @ApiResponse({ status: 200, description: 'Liste du personnel du service' })
-  async getServicePersonnel(@Body('chef') chef: ChefWithRelations) {
-    this.logger.log(`Récupération du personnel du service par ${chef.email_travail}`);
-    return this.chefdeserviceService.getServicePersonnel(chef);
+  @Get('personnel/:serviceId')
+  @ApiOperation({ summary: 'Consulter le personnel d’un service' })
+  @ApiParam({
+    name: 'serviceId',
+    type: String,
+    description: 'ID du service pour lequel récupérer le personnel',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Liste du personnel du service',
+    schema: {
+      type: 'array',
+      items: {
+        example: {
+          id_personnel: 'uuid1',
+          nom_personnel: 'Hallage',
+          prenom_personnel: 'Yann',
+          role_personnel: 'CHEF_SERVICE',
+          email_personnel: 'yann.hallage@assnat.qc.ca',
+          email_travail: 'yann.hallage@assnat.qc.ca',
+          is_active: true,
+          service: {
+            id_service: '123e4567-e89b-12d3-a456-426614174000',
+            nom_service: 'Ressources Humaines',
+          },
+          _count: {
+            demandes: 5,
+            fichesConge: 2,
+            demandesEnCoursChef: 3,
+          },
+        },
+      },
+    },
+  })
+  async getServicePersonnel(@Param('serviceId') serviceId: string) {
+    if (!serviceId) {
+      this.logger.warn(`Service ID manquant`);
+      throw new BadRequestException('L’ID du service est requis');
+    }
+
+    this.logger.log(`Récupération du personnel du service ${serviceId}`);
+    return this.chefdeserviceService.getServicePersonnel(serviceId);
   }
 }

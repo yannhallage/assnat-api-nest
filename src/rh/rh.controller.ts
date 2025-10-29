@@ -8,6 +8,7 @@ import {
   UpdatePersonnelDto,
   // CreateAlertDto,
 } from './dto/rh.dto';
+import { CreateTypeCongeDto } from './dto/create-type-conge.dto';
 
 @ApiTags('Ressources Humaines')
 @Controller('rh')
@@ -77,8 +78,18 @@ export class RhController {
   @ApiOperation({ summary: 'Créer un nouveau personnel' })
   @ApiResponse({ status: 201, description: 'Personnel créé avec succès' })
   async createPersonnel(@Body() dto: CreatePersonnelDto) {
-    this.logger.log(`Création du personnel: ${dto.email_travail}`);
+    this.logger.log(`Création du personnel`);
     return this.rhService.createPersonnel(dto);
+  }
+  // -----------------------------
+  // Typede congé
+  // -----------------------------
+  @Post('types-conge')
+  @ApiOperation({ summary: 'Créer un nouveau type de congé' })
+  @ApiResponse({ status: 201, description: 'Type de congé créé avec succès' })
+  @ApiResponse({ status: 400, description: 'Libellé déjà existant ou données invalides' })
+  async createTypeConge(@Body() dto: CreateTypeCongeDto) {
+    return this.rhService.createTypeConge(dto);
   }
 
   @Get('personnels')

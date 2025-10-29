@@ -313,3 +313,4 @@ export class UpdatePersonnelDto {
   @IsOptional()
   is_active?: boolean;
 }
+

@@ -19,6 +19,7 @@ enum StatutDemande {
   EN_ATTENTE
   APPROUVEE
   REFUSEE
+  ANNULEE
 }
 
 enum RolePersonnel {

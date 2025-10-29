@@ -1,10 +1,10 @@
-import { Controller, Post, Get, Param, Body, Logger } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { Controller, Post, Get, Query, Param, Body, Logger, BadRequestException } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiQuery } from '@nestjs/swagger';
+import { UserService } from './user.service';
 import type { Personnel } from '@prisma/client';
-import { PrismaClient } from '@prisma/client';
 import {
   CreateDemandeDto,
-  CreatePeriodeCongeDto,
+  // CreatePeriodeCongeDto,
   CreateDiscussionDto,
 } from './dto/user.dto';
 
@@ -12,26 +12,32 @@ import {
 @Controller('user')
 export class UserController {
   private readonly logger = new Logger(UserController.name);
-  private prisma = new PrismaClient();
+
+  constructor(private readonly userService: UserService) { }
 
   // -----------------------------
   // Créer une demande
   // -----------------------------
   @Post('demandes')
   @ApiOperation({ summary: 'Créer une nouvelle demande de congé' })
+  @ApiResponse({ status: 201, description: 'Demande créée avec succès' })
+  @ApiResponse({ status: 400, description: 'Données invalides ou dates incorrectes' })
+  @ApiQuery({
+    name: 'id_personnel',
+    description: 'ID du personnel créant la demande',
+    required: true,
+    example: 'uuid-personnel',
+  })
   async createDemande(
-    @Body('user') user: Personnel,
+    @Query('id_personnel') id_personnel: string,
     @Body() dto: CreateDemandeDto,
   ) {
-    this.logger.log(`Création d'une demande par ${user.email_travail}`);
-    return this.prisma.demande.create({
-      data: {
-        type_demande: dto.type_demande,
-        id_personnel: user.id_personnel,
-        id_service: user.id_service,
-        motif: dto.motif,
-      },
-    });
+    if (!id_personnel) {
+      throw new BadRequestException('L\'ID du personnel est requis');
+    }
+
+    this.logger.log(`Création d'une demande pour le personnel ${id_personnel}`);
+    return this.userService.createDemande(id_personnel, dto);
   }
 
   // -----------------------------
@@ -39,19 +45,10 @@ export class UserController {
   // -----------------------------
   @Get('demandes')
   @ApiOperation({ summary: 'Récupérer toutes mes demandes' })
-  async getMyDemandes(@Body('user') user: Personnel) {
-    this.logger.log(`Récupération des demandes de ${user.email_travail}`);
-    return this.prisma.demande.findMany({
-      where: { id_personnel: user.id_personnel },
-      include: {
-        periodeConge: true,
-        discussions: true,
-        ficheDeConge: true,
-        service: true,
-        personnel: true,
-      },
-      orderBy: { date_demande: 'desc' },
-    });
+  @ApiResponse({ status: 200, description: 'Liste des demandes de l’utilisateur' })
+  async getMyDemandes(@Query('id_personnel') id_personnel: string) {
+    this.logger.log(`Récupération des demandes`);
+    return this.userService.getMyDemandes(id_personnel);
   }
 
   // -----------------------------
@@ -59,51 +56,40 @@ export class UserController {
   // -----------------------------
   @Get('demandes/:id')
   @ApiOperation({ summary: 'Récupérer les détails d\'une demande' })
+  @ApiResponse({ status: 200, description: 'Détails de la demande' })
+  @ApiResponse({ status: 404, description: 'Demande non trouvée' })
   async getDemandeDetails(
     @Body('user') user: Personnel,
     @Param('id') id: string,
   ) {
     this.logger.log(`Récupération des détails de la demande ${id} pour ${user.email_travail}`);
-    return this.prisma.demande.findFirst({
-      where: { id_demande: id, id_personnel: user.id_personnel },
-      include: {
-        periodeConge: true,
-        discussions: true,
-        ficheDeConge: true,
-        service: true,
-        personnel: true,
-      },
-    });
+    return this.userService.getDemandeDetails(user, id);
   }
 
   // -----------------------------
   // Créer une période de congé
   // -----------------------------
-  @Post('periodes-conge')
-  @ApiOperation({ summary: 'Créer une nouvelle période de congé' })
-  async createPeriodeConge(
-    @Body('user') user: Personnel,
-    @Body() dto: CreatePeriodeCongeDto,
-  ) {
-    this.logger.log(`Création d'une période de congé par ${user.email_travail}`);
-    return this.prisma.periodeConge.create({
-      data: {
-        date_debut: dto.date_debut,
-        date_fin: dto.date_fin,
-        nb_jour: dto.nb_jour,
-        id_typeconge: dto.id_typeconge,
-      },
-    });
-  }
+  // @Post('periodes-conge')
+  // @ApiOperation({ summary: 'Créer une nouvelle période de congé' })
+  // @ApiResponse({ status: 201, description: 'Période de congé créée' })
+  // @ApiResponse({ status: 400, description: 'Données invalides' })
+  // async createPeriodeConge(
+  //   @Body('user') user: Personnel,
+  //   @Body() dto: CreatePeriodeCongeDto,
+  // ) {
+  //   this.logger.log(`Création d'une période de congé par ${user.email_travail}`);
+  //   return this.userService.createPeriodeConge(user, dto);
+  // }
 
   // -----------------------------
   // Récupérer les types de congé actifs
   // -----------------------------
   @Get('types-conge')
   @ApiOperation({ summary: 'Récupérer tous les types de congé actifs' })
+  @ApiResponse({ status: 200, description: 'Liste des types de congé actifs' })
   async getTypesConge() {
     this.logger.log('Récupération des types de congé actifs');
-    return this.prisma.typeConge.findMany({ where: { is_active: true } });
+    return this.userService.getTypesConge();
   }
 
   // -----------------------------
@@ -111,17 +97,53 @@ export class UserController {
   // -----------------------------
   @Post('demandes/:id/discussions')
   @ApiOperation({ summary: 'Ajouter une discussion à une demande' })
+  @ApiResponse({ status: 201, description: 'Discussion ajoutée' })
+  @ApiResponse({ status: 404, description: 'Demande non trouvée' })
+  @ApiQuery({
+    name: 'id_personnel',
+    description: 'ID du personnel ajoutant la discussion',
+    required: true,
+    example: 'uuid-personnel',
+  })
+  @ApiBody({
+    description: 'Message de la discussion',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', example: 'Voici mon message pour la demande' },
+        heure_message: { type: 'string', format: 'date-time', example: '2025-10-29T10:30:00.000Z' },
+      },
+      required: ['message'],
+    },
+  })
   async addDiscussion(
-    @Body('user') user: Personnel,
+    @Query('id_personnel') id_personnel: string,
     @Param('id') demandeId: string,
     @Body() dto: CreateDiscussionDto,
   ) {
-    this.logger.log(`Ajout d'une discussion à la demande ${demandeId} par ${user.email_travail}`);
-    return this.prisma.discussion.create({
-      data: {
-        message: dto.message,
-        id_demande: demandeId,
-      },
-    });
+    this.logger.log(
+      `Ajout d'une discussion à la demande ${demandeId} par le personnel ${id_personnel}`,
+    );
+    return this.userService.addDiscussionToDemande(id_personnel, demandeId, dto);
   }
+
+
+  // -----------------------------
+  // recuperer les discussion à une demande
+  // -----------------------------
+
+  @Get('demandes/:id/discussions')
+  @ApiOperation({ summary: 'Récupérer toutes les discussions d’une demande' })
+  @ApiResponse({ status: 200, description: 'Liste des discussions' })
+  @ApiResponse({ status: 404, description: 'Demande non trouvée' })
+  async getDiscussions(
+    @Body('id_personnel') id_personnel: string,
+    @Param('id') demandeId: string,
+  ) {
+    this.logger.log(`Récupération des discussions pour la demande ${demandeId} par le personnel ${id_personnel}`);
+    return this.userService.getDiscussionsByDemande(id_personnel, demandeId);
+  }
+
+
+  // prochaine route annulée la demandes et telechagerfiche congé
 }

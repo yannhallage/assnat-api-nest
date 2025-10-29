@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, Logger, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger, ForbiddenException, InternalServerErrorException } from '@nestjs/common';
 // import { AuthService } from '../auth/auth.service';
 import { ApproveDemandeDto, RejectDemandeDto } from './dto/chef.dto';
 import type { Personnel } from '@prisma/client';
@@ -17,27 +17,34 @@ export class ChefdeserviceService {
     // private authService: AuthService,
   ) { }
 
-  async getServiceDemandes(chef: Personnel) {
-    this.logger.log(`Récupération des demandes du service pour le chef ${chef.email_travail}`);
+  async getServiceDemandes(id_chef: string) {
+    this.logger.log(`Récupération des demandes du service pour le chef ${id_chef}`);
 
+    // Récupérer le chef avec son service
+    const chef = await this.prisma.personnel.findUnique({
+      where: { id_personnel: id_chef },
+      include: { service: true }, // Inclure le service pour récupérer id_service
+    });
+
+    if (!chef) throw new NotFoundException('Chef de service non trouvé');
+    if (!chef.service) throw new NotFoundException('Service du chef introuvable');
+
+    // Récupérer toutes les demandes du service du chef
     const demandes = await this.prisma.demande.findMany({
       where: {
-        id_service: chef.id_service,
+        id_service: chef.service.id_service,
         statut_demande: { in: ['EN_ATTENTE', 'APPROUVEE', 'REFUSEE'] },
       },
       include: {
         personnel: true,
-        periodeConge: {
-          include: { typeConge: true },
-        },
-        discussions: {
-          orderBy: { date_message: 'desc' },
-        },
+        periodeConge: { include: { typeConge: true } },
+        discussions: { orderBy: { date_message: 'desc' } },
         ficheDeConge: true,
       },
       orderBy: { date_demande: 'desc' },
     });
 
+    this.logger.log(`demandes récupérées`);
     return demandes;
   }
 
@@ -208,38 +215,41 @@ export class ChefdeserviceService {
     return { message: 'Demande supprimée avec succès' };
   }
 
-  async invitePersonnel(chef: any, dto: InvitePersonnelDto) {
-    this.logger.log(`Chef ${chef.email_travail} invite ${dto.email_travail}`);
-
-    if (!chef?.id_service) {
-      throw new BadRequestException('Chef de service invalide');
+  async invitePersonnel(dto: InvitePersonnelDto) {
+    if (!dto?.email_personnel) {
+      throw new BadRequestException('Email du personnel invalide pour invitation');
     }
 
     // Vérifier si le personnel existe déjà
     const existing = await this.prisma.personnel.findFirst({
-      where: { email_travail: dto.email_travail },
+      where: { email_travail: dto.email_personnel },
     });
-    if (existing) {
-      throw new BadRequestException('Le personnel existe déjà');
-    }
 
     // Générer un mot de passe temporaire
     const tempPassword = Math.random().toString(36).slice(-8);
     const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
-    // Créer le personnel
-    const personnel = await this.prisma.personnel.create({
-      data: {
-        ...dto,
-        password: hashedPassword,
-        id_service: chef.id_service,
-        is_active: true,
-      },
-    });
+    let personnel;
+
+    if (existing) {
+      if (existing.is_active) {
+        // Le personnel existe et est actif → on arrête
+        throw new BadRequestException('Le personnel existe déjà et est actif');
+      } else {
+        // Le personnel existe mais est inactif → mise à jour du mot de passe et activation
+        personnel = await this.prisma.personnel.update({
+          where: { id_personnel: existing.id_personnel },
+          data: {
+            password: hashedPassword,
+            is_active: true,
+          },
+        });
+      }
+    }
 
     // Envoyer l’email d’invitation
     await this.emailService.sendInvitationEmail(
-      dto.email_travail,
+      dto.email_personnel,
       tempPassword,
       dto.nom_personnel,
       dto.prenom_personnel
@@ -249,27 +259,44 @@ export class ChefdeserviceService {
   }
 
 
+  async getServicePersonnel(serviceId: string) {
+    if (!serviceId) {
+      this.logger.warn(`Service ID manquant`);
+      throw new BadRequestException('L’ID du service est requis');
+    }
 
-  async getServicePersonnel(chef: Personnel) {
-    this.logger.log(`Récupération du personnel du service pour le chef ${chef.email_travail}`);
+    this.logger.log(`Récupération du personnel du service ${serviceId}`);
 
-    const personnel = await this.prisma.personnel.findMany({
-      where: {
-        id_service: chef.id_service,
-        is_active: true,
-      },
-      include: {
-        service: true,
-        _count: {
-          select: {
-            demandes: true,
-            fichesConge: true,
+    try {
+      const personnelList = await this.prisma.personnel.findMany({
+        where: {
+          id_service: serviceId,
+          // is_active: true || false,
+        },
+        include: {
+          service: true,
+          _count: {
+            select: {
+              demandes: true,
+              fichesConge: true,
+              demandesEnCoursChef: true,
+            },
           },
         },
-      },
-      orderBy: { nom_personnel: 'asc' },
-    });
+        orderBy: { nom_personnel: 'asc' },
+      });
 
-    return personnel;
+      if (!personnelList.length) {
+        this.logger.log(`Aucun personnel trouvé pour le service ${serviceId}`);
+      }
+
+      return personnelList;
+    } catch (error) {
+      this.logger.error(
+        `Erreur lors de la récupération du personnel du service ${serviceId}: ${error.message}`,
+      );
+      throw new InternalServerErrorException('Impossible de récupérer le personnel du service');
+    }
   }
+
 }

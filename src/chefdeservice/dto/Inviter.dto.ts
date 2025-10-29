@@ -4,7 +4,7 @@ import { TypePersonnel, RolePersonnel } from '@prisma/client';
 
 export class InvitePersonnelDto {
     @IsEmail()
-    email_travail: string;
+    email_personnel: string;
 
     @IsNotEmpty()
     nom_personnel: string;

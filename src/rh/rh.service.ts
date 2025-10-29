@@ -7,6 +7,7 @@ import { CreatePersonnelDto } from './dto/create-personnel.dto';
 import { CreateAlertDto } from './dto/create-alert.dto';
 import { UpdatePersonnelDto } from './dto/update-personnel.dto';
 import { EmailService } from 'src/shared/mail/mail.service';
+import { CreateTypeCongeDto } from './dto/create-type-conge.dto';
 
 @Injectable()
 export class RhService {
@@ -68,46 +69,88 @@ export class RhService {
    * Un email de bienvenue est envoyé.
    */
   async createPersonnel(dto: CreatePersonnelDto) {
-    if (!dto.password) {
-      throw new BadRequestException('Le mot de passe est requis');
-    }
-    const hashedPassword = await bcrypt.hash(dto.password, 10);
+    const prisma = this.prisma; // alias pour plus de lisibilité
 
-    try {
-      const personnel = await this.prisma.personnel.create({
-        data: {
-          ...dto,
-          password: hashedPassword,
-        },
-        include: { service: true },
-      });
-
-      this.logger.log(`Personnel créé : ${personnel.nom_personnel} ${personnel.prenom_personnel}`);
-
-      const message = `
-        <p>Bonjour ${personnel.prenom_personnel} ${personnel.nom_personnel},</p>
-        <p>Votre compte a été créé avec succès dans le système de gestion des congés.</p>
-        <p>Vous pouvez maintenant accéder à votre interface dédiée.</p>
-      `;
-
+    return await prisma.$transaction(async (tx) => {
       try {
-        await this.emailService.sendNotificationEmail(
-          personnel.email_travail!,
-          'Bienvenue dans le système de gestion des congés',
-          message,
-        );
-        this.logger.log(`Email de bienvenue envoyé à ${personnel.email_travail}`);
-      } catch (emailError) {
-        this.logger.error(
-          `Échec de l'envoi de l'email à ${personnel.email_travail}: ${emailError.message}`,
-        );
-      }
+        // 1️⃣ Détermination du mot de passe
+        let passwordToUse = dto.password;
 
-      return personnel;
-    } catch (error) {
-      this.logger.error(`Erreur lors de la création du personnel: ${error.message}`);
-      throw new BadRequestException('Impossible de créer le personnel');
-    }
+        if (dto.role_personnel === 'CHEF_SERVICE') {
+          passwordToUse = Math.random().toString(36).slice(-8); // 8 caractères aléatoires
+          this.logger.log(
+            `🔐 Mot de passe auto-généré pour`,
+          );
+        }
+
+        if (!passwordToUse) {
+          throw new BadRequestException('Le mot de passe est requis pour ce rôle');
+        }
+
+        const hashedPassword = await bcrypt.hash(passwordToUse, 10);
+
+        // 2️⃣ Création du personnel dans la base
+        const personnel = await tx.personnel.create({
+          data: {
+            ...dto,
+            password: hashedPassword,
+            is_active: dto.role_personnel === 'CHEF_SERVICE'
+          },
+          include: { service: true },
+        });
+
+        this.logger.log(
+          `✅ Personnel créé `,
+        );
+
+        // 3️⃣ Préparation du contenu email
+        let subject: string;
+        let message: string;
+        let recipient: string;
+
+        if (dto.role_personnel === 'CHEF_SERVICE') {
+          subject = 'Création de votre compte Chef de Service';
+          message = `
+          <p>Bonjour ${personnel.prenom_personnel} ${personnel.nom_personnel},</p>
+          <p>Votre compte Chef de Service a été créé avec succès.</p>
+          <p>Voici vos identifiants de connexion :</p>
+          <ul>
+            <li><strong>Email :</strong> ${personnel.email_personnel}</li>
+            <li><strong>Mot de passe :</strong> ${passwordToUse}</li>
+          </ul>
+          <p>Veuillez modifier votre mot de passe après la première connexion.</p>
+          <p>Cordialement,<br>L’équipe RH</p>
+        `;
+          recipient = personnel.email_personnel!;
+        } else {
+          subject = 'Bienvenue dans le système de gestion des congés';
+          message = `
+          <p>Bonjour ${personnel.prenom_personnel} ${personnel.nom_personnel},</p>
+          <p>Votre compte a été créé avec succès dans le système.</p>
+          <p>Vous pouvez maintenant accéder à votre interface dédiée.</p>
+          <p>Cordialement,<br>L’équipe RH</p>
+        `;
+          recipient = personnel.email_personnel!;
+        }
+
+        // 4️⃣ Envoi d’email (si échec → rollback de la transaction)
+        try {
+          await this.emailService.sendNotificationEmail(recipient, subject, message);
+          this.logger.log(`📩 Email envoyé `);
+        } catch (emailError) {
+          this.logger.error(`❌ Erreur lors de l’envoi d’email: ${emailError.message}`);
+          // Lever l’erreur pour forcer le rollback de la transaction
+          throw new Error('Échec lors de l’envoi de l’email');
+        }
+
+        // 5️⃣ Retour succès si tout s’est bien passé
+        return { success: true, id: personnel.id_personnel };
+      } catch (error) {
+        this.logger.error(`🚨 Erreur lors de la création du personnel: ${error.message}`);
+        // Toute erreur déclenche un rollback automatique
+        throw new BadRequestException('Impossible de créer le personnel');
+      }
+    });
   }
 
   async getAllPersonnel() {
@@ -168,6 +211,27 @@ export class RhService {
     // Pour l'exemple, on logue
     this.logger.log(`Alerte créée : ${JSON.stringify(dto)}`);
     return { message: 'Alerte créée', data: dto };
+  }
+  
+  // -----------------------------
+  // type de congés
+  // -----------------------------
+
+  async createTypeConge(dto: CreateTypeCongeDto) {
+    try {
+      return await this.prisma.typeConge.create({
+        data: {
+          libelle_typeconge: dto.libelle_typeconge,
+          is_active: dto.is_active ?? true, // par défaut true
+        },
+      });
+    } catch (error) {
+      // Gestion des erreurs Prisma, par exemple unicité
+      if (error.code === 'P2002') {
+        throw new BadRequestException('Ce libellé de type de congé existe déjà');
+      }
+      throw error;
+    }
   }
 
   // -----------------------------

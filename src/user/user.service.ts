@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException, Logger } from '@nestjs/common';
 import { PrismaService } from '../shared/prisma/prisma.service';
-import { CreateDemandeDto, CreatePeriodeCongeDto, CreateDiscussionDto } from './dto/user.dto';
+// import { CreateDemandeDto, CreatePeriodeCongeDto, CreateDiscussionDto } from './dto/user.dto';
+import { CreateDemandeDto, CreateDiscussionDto } from './dto/user.dto';
 import type { Personnel } from '@prisma/client';
 import { StatutDemande } from '@prisma/client';
 
@@ -13,54 +14,93 @@ export class UserService {
   // -----------------------------
   // Créer une demande
   // -----------------------------
-  async createDemande(user: Personnel, dto: CreateDemandeDto) {
-    this.logger.log(`Création d'une demande par ${user.email_travail}`);
 
-    const periode = await this.prisma.periodeConge.findUnique({
-      where: { id_periodeconge: dto.id_periodeconge },
-      include: { typeConge: true },
-    });
-    if (!periode) throw new NotFoundException('Période de congé non trouvée');
+  async createDemande(id_personnel: string, dto: CreateDemandeDto) {
+    let periodeCongeId = dto.id_periodeconge;
 
-    const existing = await this.prisma.demande.findFirst({
-      where: {
-        id_personnel: user.id_personnel,
-        id_periodeconge: dto.id_periodeconge,
-        statut_demande: { in: [StatutDemande.EN_ATTENTE, StatutDemande.APPROUVEE] },
-      },
-    });
-    if (existing) throw new ConflictException('Vous avez déjà une demande en cours pour cette période');
-
-    const chefService = await this.prisma.personnel.findFirst({
-      where: { id_service: user.id_service, role_personnel: 'CHEF_SERVICE', is_active: true },
+    // Récupérer le personnel pour obtenir id_service
+    const personnel = await this.prisma.personnel.findUnique({
+      where: { id_personnel },
     });
 
+    if (!personnel) throw new NotFoundException('Personnel non trouvé');
+
+    // Si le DTO contient les infos pour créer une période de congé
+    if (dto.date_debut && dto.date_fin && dto.nb_jour && dto.id_typeconge) {
+      const debut = new Date(dto.date_debut);
+      const fin = new Date(dto.date_fin);
+
+      if (debut >= fin) {
+        throw new BadRequestException('La date de début doit être antérieure à la date de fin');
+      }
+
+      const type = await this.prisma.typeConge.findUnique({
+        where: { id_typeconge: dto.id_typeconge },
+      });
+      if (!type) throw new NotFoundException('Type de congé non trouvé');
+
+      const periode = await this.prisma.periodeConge.create({
+        data: {
+          date_debut: debut,
+          date_fin: fin,
+          nb_jour: dto.nb_jour,
+          id_typeconge: dto.id_typeconge,
+        },
+        include: { typeConge: true },
+      });
+
+      this.logger.log(`Période de congé créée: ${periode.id_periodeconge}`);
+      periodeCongeId = periode.id_periodeconge;
+    }
+
+    // Créer la demande en utilisant l'id de la période de congé et les infos du personnel
     const demande = await this.prisma.demande.create({
       data: {
         type_demande: dto.type_demande,
         motif: dto.motif,
-        id_personnel: user.id_personnel,
-        id_service: user.id_service,
-        id_periodeconge: dto.id_periodeconge,
-        id_chef_service: chefService?.id_personnel,
+        id_personnel: personnel.id_personnel,
+        id_service: personnel.id_service || dto.id_service,
+        id_periodeconge: periodeCongeId,
+        id_chef_service: dto.id_chef_service,
       },
-      include: {
-        periodeConge: { include: { typeConge: true } },
-        service: true,
-      },
+      include: { periodeConge: true, service: true, personnel: true },
     });
 
     this.logger.log(`Demande créée: ${demande.id_demande}`);
     return demande;
   }
 
+
+
+  // -----------------------------
+  // Créer une période de congé
+  // -----------------------------
+  // async createPeriodeConge(user: Personnel, dto: CreatePeriodeCongeDto) {
+  //   this.logger.log(`Création d'une période de congé`);
+
+  //   const type = await this.prisma.typeConge.findUnique({ where: { id_typeconge: dto.id_typeconge } });
+  //   if (!type) throw new NotFoundException('Type de congé non trouvé');
+
+  //   const debut = new Date(dto.date_debut);
+  //   const fin = new Date(dto.date_fin);
+  //   if (debut >= fin) throw new BadRequestException('La date de début doit être antérieure à la date de fin');
+
+  //   const periode = await this.prisma.periodeConge.create({
+  //     data: { date_debut: debut, date_fin: fin, nb_jour: dto.nb_jour, id_typeconge: dto.id_typeconge },
+  //     include: { typeConge: true },
+  //   });
+
+  //   this.logger.log(`Période de congé créée: ${periode.id_periodeconge}`);
+  //   return periode;
+  // }
+
   // -----------------------------
   // Récupérer toutes les demandes de l'utilisateur
   // -----------------------------
-  async getMyDemandes(user: Personnel) {
-    this.logger.log(`Récupération des demandes de ${user.email_travail}`);
+  async getMyDemandes(id_personnel: string) {
+    this.logger.log(`Récupération des demandes de ${id_personnel}`);
     return this.prisma.demande.findMany({
-      where: { id_personnel: user.id_personnel },
+      where: { id_personnel: id_personnel },
       include: {
         periodeConge: { include: { typeConge: true } },
         service: true,
@@ -97,35 +137,13 @@ export class UserService {
   }
 
   // -----------------------------
-  // Créer une période de congé
-  // -----------------------------
-  async createPeriodeConge(user: Personnel, dto: CreatePeriodeCongeDto) {
-    this.logger.log(`Création d'une période de congé par ${user.email_travail}`);
-
-    const type = await this.prisma.typeConge.findUnique({ where: { id_typeconge: dto.id_typeconge } });
-    if (!type) throw new NotFoundException('Type de congé non trouvé');
-
-    const debut = new Date(dto.date_debut);
-    const fin = new Date(dto.date_fin);
-    if (debut >= fin) throw new BadRequestException('La date de début doit être antérieure à la date de fin');
-
-    const periode = await this.prisma.periodeConge.create({
-      data: { date_debut: debut, date_fin: fin, nb_jour: dto.nb_jour, id_typeconge: dto.id_typeconge },
-      include: { typeConge: true },
-    });
-
-    this.logger.log(`Période de congé créée: ${periode.id_periodeconge}`);
-    return periode;
-  }
-
-  // -----------------------------
   // Ajouter une discussion à une demande
   // -----------------------------
-  async addDiscussionToDemande(user: Personnel, demandeId: string, dto: CreateDiscussionDto) {
-    this.logger.log(`Ajout d'une discussion à la demande ${demandeId} par ${user.email_travail}`);
+  async addDiscussionToDemande(id_personnel: string, demandeId: string, dto: CreateDiscussionDto) {
+    this.logger.log(`Ajout d'une discussion à la demande ${demandeId}`);
 
     const demande = await this.prisma.demande.findFirst({
-      where: { id_demande: demandeId, id_personnel: user.id_personnel },
+      where: { id_demande: demandeId, id_personnel: id_personnel },
     });
     if (!demande) throw new NotFoundException('Demande non trouvée ou non autorisée');
 
@@ -135,6 +153,27 @@ export class UserService {
 
     this.logger.log(`Discussion ajoutée: ${discussion.id_discussion}`);
     return discussion;
+  }
+  // -----------------------------
+  // recuperer les discussion à une demande
+  // -----------------------------
+  async getDiscussionsByDemande(id_personnel: string, demandeId: string) {
+    this.logger.log(`Récupération des discussions pour la demande ${demandeId}`);
+
+    // Vérifier que la demande existe et appartient bien au personnel
+    const demande = await this.prisma.demande.findFirst({
+      where: { id_demande: demandeId, id_personnel },
+    });
+    if (!demande) throw new NotFoundException('Demande non trouvée ou non autorisée');
+
+    // Récupérer les discussions liées à la demande, triées par date croissante
+    const discussions = await this.prisma.discussion.findMany({
+      where: { id_demande: demandeId },
+      orderBy: { heure_message: 'asc' },
+    });
+
+    this.logger.log(`Nombre de discussions récupérées: ${discussions.length}`);
+    return discussions;
   }
 
   // -----------------------------

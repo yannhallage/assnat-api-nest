@@ -1,34 +1,32 @@
 import { IsNotEmpty, IsString, IsOptional, IsDateString, IsUUID } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateDemandeDto {
-  @ApiProperty({
-    description: 'Type de demande',
-    example: 'Congé Annuel',
-  })
+  @ApiProperty({ description: 'Type de la demande', example: 'Congé annuel' })
   @IsString()
-  @IsNotEmpty()
+  @IsNotEmpty({ message: 'Le type de demande est obligatoire' })
   type_demande: string;
 
-  @ApiProperty({
-    description: 'Motif de la demande',
-    example: 'Vacances familiales',
-    required: false,
-  })
+  @ApiPropertyOptional({ description: 'Motif de la demande', example: 'Vacances familiales' })
   @IsString()
   @IsOptional()
   motif?: string;
 
-  @ApiProperty({
-    description: 'ID de la période de congé',
-    example: 'uuid-de-la-periode',
-  })
-  @IsUUID()
-  @IsNotEmpty()
-  id_periodeconge: string;
-}
+  @ApiPropertyOptional({ description: 'ID du service associé', example: 'uuid-service' })
+  @IsString()
+  @IsOptional()
+  id_service?: string;
 
-export class CreatePeriodeCongeDto {
+  @ApiPropertyOptional({ description: 'ID de la période de congé associée', example: 'uuid-periode' })
+  @IsString()
+  @IsOptional()
+  id_periodeconge?: string;
+
+  @ApiPropertyOptional({ description: 'ID du chef de service responsable', example: 'uuid-chef' })
+  @IsString()
+  @IsOptional()
+  id_chef_service?: string;
+
   @ApiProperty({
     description: 'Date de début du congé',
     example: '2024-07-01',
@@ -60,6 +58,39 @@ export class CreatePeriodeCongeDto {
   @IsNotEmpty()
   id_typeconge: string;
 }
+
+// export class CreatePeriodeCongeDto {
+//   @ApiProperty({
+//     description: 'Date de début du congé',
+//     example: '2024-07-01',
+//   })
+//   @IsDateString()
+//   @IsNotEmpty()
+//   date_debut: string;
+
+//   @ApiProperty({
+//     description: 'Date de fin du congé',
+//     example: '2024-07-15',
+//   })
+//   @IsDateString()
+//   @IsNotEmpty()
+//   date_fin: string;
+
+//   @ApiProperty({
+//     description: 'Nombre de jours de congé',
+//     example: 10,
+//   })
+//   @IsNotEmpty()
+//   nb_jour: number;
+
+//   @ApiProperty({
+//     description: 'ID du type de congé',
+//     example: 'uuid-du-type-conge',
+//   })
+//   @IsUUID()
+//   @IsNotEmpty()
+//   id_typeconge: string;
+// }
 
 export class CreateDiscussionDto {
   @ApiProperty({
