@@ -87,6 +87,7 @@ model Personnel {
   telephone_contact_urgence String?
   nom_contact_urgence     String?
   role_personnel          RolePersonnel @default(EMPLOYE)
+  disponibilité_day   Int            @default(45)
   type_personnel          TypePersonnel @default(PERMANENT)
   date_creation           DateTime @default(now())
   id_service              String

@@ -5,6 +5,7 @@ import { ApiTags, ApiOperation, ApiParam, ApiQuery, ApiBody, ApiResponse } from 
 import { ChefdeserviceService } from './chefdeservice.service';
 import { ApproveDemandeDto, RejectDemandeDto } from './dto/chef.dto';
 import type { Personnel } from '@prisma/client';
+import { CreateDiscussionDto } from 'src/user/dto/user.dto';
 
 type ChefWithRelations = Personnel & {
   service?: {
@@ -167,5 +168,40 @@ export class ChefdeserviceController {
 
     this.logger.log(`Récupération du personnel du service ${serviceId}`);
     return this.chefdeserviceService.getServicePersonnel(serviceId);
+  }
+
+  // -----------------------------
+  // Ajouter une discussion à une demande
+  // -----------------------------
+  @Post('demandes/:id/discussions')
+  @ApiOperation({ summary: 'Ajouter une discussion à une demande' })
+  @ApiResponse({ status: 201, description: 'Discussion ajoutée' })
+  @ApiResponse({ status: 404, description: 'Demande non trouvée' })
+  @ApiQuery({
+    name: 'id_chef',
+    description: 'ID du chef de service ajoutant la discussion',
+    required: true,
+    example: 'uuid-chef',
+  })
+  @ApiBody({
+    description: 'Message de la discussion',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', example: 'Voici mon message pour la demande' },
+        heure_message: { type: 'string', format: 'date-time', example: '2025-10-29T10:30:00.000Z' },
+      },
+      required: ['message'],
+    },
+  })
+  async addDiscussion(
+    @Query('id_chef') id_chef: string,
+    @Param('id') demandeId: string,
+    @Body() dto: CreateDiscussionDto,
+  ) {
+    this.logger.log(
+      `Ajout d'une discussion à la demande ${demandeId} par le personnel ${id_chef}`,
+    );
+    return this.chefdeserviceService.addDiscussionToDemande(id_chef, demandeId, dto);
   }
 }

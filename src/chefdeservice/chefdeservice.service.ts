@@ -6,6 +6,7 @@ import * as bcrypt from 'bcryptjs'
 import { PrismaService } from 'src/shared/prisma/prisma.service';
 import { EmailService } from 'src/shared/mail/mail.service';
 import { InvitePersonnelDto } from './dto/Inviter.dto';
+import { CreateDiscussionDto } from 'src/user/dto/user.dto';
 
 @Injectable()
 export class ChefdeserviceService {
@@ -299,4 +300,19 @@ export class ChefdeserviceService {
     }
   }
 
+  async addDiscussionToDemande(id_chef: string, demandeId: string, dto: CreateDiscussionDto) {
+      this.logger.log(`Ajout d'une discussion à la demande ${demandeId}`);
+  
+      const demande = await this.prisma.demande.findFirst({
+        where: { id_demande: demandeId },
+      });
+      if (!demande) throw new NotFoundException('Demande non trouvée ou non autorisée');
+  
+      const discussion = await this.prisma.discussion.create({
+        data: { message: dto.message, heure_message: dto.heure_message, id_demande: demandeId },
+      });
+  
+      this.logger.log(`Discussion ajoutée: ${discussion.id_discussion}`);
+      return discussion;
+    }
 }
