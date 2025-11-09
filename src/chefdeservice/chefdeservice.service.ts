@@ -50,7 +50,7 @@ export class ChefdeserviceService {
   }
 
   async approveDemande(chef: Personnel, demandeId: string, approveDto: ApproveDemandeDto) {
-    this.logger.log(`Approbation de la demande ${demandeId} par le chef ${chef.email_travail}`);
+    this.logger.log(`Approbation de la demande ${demandeId} par le chef`);
 
     const demande = await this.prisma.demande.findFirst({
       where: {
@@ -314,5 +314,24 @@ export class ChefdeserviceService {
   
       this.logger.log(`Discussion ajoutée: ${discussion.id_discussion}`);
       return discussion;
-    }
+  }
+  
+  async getHistoriqueDemandes(id_chef: string) {
+    this.logger.log(`Récupération des demandes (TERMINEE et REFUSEE) pour le service du chef ${id_chef}`);
+    return this.prisma.demande.findMany({
+      where: {
+        id_chef_service: id_chef,
+        statut_demande: { in: ['TERMINEE', 'REFUSEE'] },
+      },
+      include: {
+        periodeConge: { include: { typeConge: true } },
+        service: true,
+        personnel: true,
+        discussions: { orderBy: { date_message: 'desc' } },
+        ficheDeConge: true,
+      },
+      orderBy: { date_demande: 'desc' },
+    });
+  }
+
 }

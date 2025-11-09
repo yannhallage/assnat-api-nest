@@ -1,4 +1,4 @@
-import { Controller, Get, Put, Post, Query, Delete, Body, Param, Logger, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Put, Post, Query, Delete, UseGuards,UnauthorizedException, Request,Body, Param, Logger, BadRequestException } from '@nestjs/common';
 import { InvitePersonnelDto } from './dto/Inviter.dto'
 
 import { ApiTags, ApiOperation, ApiParam, ApiQuery, ApiBody, ApiResponse } from '@nestjs/swagger';
@@ -6,7 +6,9 @@ import { ChefdeserviceService } from './chefdeservice.service';
 import { ApproveDemandeDto, RejectDemandeDto } from './dto/chef.dto';
 import type { Personnel } from '@prisma/client';
 import { CreateDiscussionDto } from 'src/user/dto/user.dto';
-
+import { RolesGuard } from 'src/shared/guards/roles.guard';
+import { Roles } from 'src/shared/decorators/roles.decorator';
+import { JwtAuthGuard } from 'src/shared/guards/jwt-auth.guard';
 type ChefWithRelations = Personnel & {
   service?: {
     nom_service: string;
@@ -15,7 +17,7 @@ type ChefWithRelations = Personnel & {
     };
   };
 };
-
+@UseGuards(JwtAuthGuard, RolesGuard)
 @ApiTags('Chef de Service')
 @Controller('chef')
 export class ChefdeserviceController {
@@ -170,6 +172,19 @@ export class ChefdeserviceController {
     return this.chefdeserviceService.getServicePersonnel(serviceId);
   }
 
+  @Get('historique-demandes')
+  @Roles('CHEF_SERVICE', 'ADMIN')
+  @ApiOperation({ summary: 'Récupérer les demandes terminées ou refusées de l’utilisateur' })
+  @ApiResponse({ status: 200, description: 'Liste des demandes terminées ou refusées' })
+  async getHistoriqueDemandes(@Request() req) {
+    const id_chef = req.user?.id;
+    if (!id_chef) {
+      throw new UnauthorizedException('Utilisateur non identifié');
+    }
+
+    this.logger.log(`Récupération de l’historique des demandes pour le chef ${id_chef}`);
+    return this.chefdeserviceService.getHistoriqueDemandes(id_chef);
+  }
   // -----------------------------
   // Ajouter une discussion à une demande
   // -----------------------------

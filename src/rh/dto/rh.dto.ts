@@ -69,6 +69,9 @@ export class CreateServiceDto {
   @IsUUID()
   @IsNotEmpty()
   id_direction: string;
+  @IsUUID()
+  @IsNotEmpty()
+  id_chef_de_service: string;
 }
 
 export class CreatePersonnelDto {

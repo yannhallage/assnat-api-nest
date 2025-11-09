@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Query, Param, Body, UseGuards, Request, Logger, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Get, Query, Param, Body, UseGuards, UnauthorizedException, Request, Logger, BadRequestException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiQuery } from '@nestjs/swagger';
 import { UserService } from './user.service';
 import type { Personnel } from '@prisma/client';
@@ -44,7 +44,7 @@ export class UserController {
     this.logger.log(`Création d'une demande pour le personnel ${id_personnel}`);
     return this.userService.createDemande(id_personnel, dto);
   }
-
+  
   // -----------------------------
   // Récupérer toutes mes demandes
   // -----------------------------
@@ -53,10 +53,17 @@ export class UserController {
   @ApiOperation({ summary: 'Récupérer toutes mes demandes' })
   @ApiResponse({ status: 200, description: 'Liste des demandes de l’utilisateur' })
   async getMyDemandes(@Request() req) {
-    const user = req.user; // ✅ correction de la casse
-    this.logger.log(`Récupération des demandes`);
+    const user = req.user?.id; // injecté par JwtAuthGuard
+    this.logger.log(`Création d'une demande pour le personnel ${user}`);
+    if (!user) {
+      throw new UnauthorizedException('Utilisateur non identifié');
+    }
+
+    // Récupère toutes les demandes EN_ATTENTE ou APPROUVEE
     return this.userService.getMyDemandes(user);
   }
+
+
 
   // -----------------------------
   // Récupérer les détails d'une demande
@@ -152,6 +159,21 @@ export class UserController {
     this.logger.log(`Récupération des discussions pour la demande ${demandeId} par le personnel ${id_personnel}`);
     return this.userService.getDiscussionsByDemande(id_personnel, demandeId);
   }
+  // -----------------------------
+  // Récupérer les historiques des demande
+  // -----------------------------
+  @Get('historique-demandes')
+  @Roles('EMPLOYE', 'CHEF_SERVICE', 'RH', 'ADMIN')
+  @ApiOperation({ summary: 'Récupérer les demandes terminées ou refusées de l’utilisateur' })
+  @ApiResponse({ status: 200, description: 'Liste des demandes terminées ou refusées' })
+  async getHistoriqueDemandes(@Request() req) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException('Utilisateur non identifié');
+    }
 
+    this.logger.log(`Récupération de l’historique des demandes pour ${userId}`);
+    return this.userService.getHistoriqueDemandes(userId);
+  }
   // prochaine route annulée la demandes et telechager fiche congé
 }
