@@ -69,7 +69,7 @@ export class RhService {
    * Un email de bienvenue est envoyé.
    */
   async createPersonnel(dto: CreatePersonnelDto) {
-    const prisma = this.prisma; // alias pour plus de lisibilité
+    const prisma = this.prisma;
 
     return await prisma.$transaction(async (tx) => {
       try {
@@ -78,9 +78,7 @@ export class RhService {
 
         if (dto.role_personnel === 'CHEF_SERVICE') {
           passwordToUse = Math.random().toString(36).slice(-8); // 8 caractères aléatoires
-          this.logger.log(
-            `🔐 Mot de passe auto-généré pour`,
-          );
+          this.logger.log(`🔐 Mot de passe auto-généré pour le chef de service`);
         }
 
         if (!passwordToUse) {
@@ -89,24 +87,31 @@ export class RhService {
 
         const hashedPassword = await bcrypt.hash(passwordToUse, 10);
 
-        // 2️⃣ Création du personnel dans la base
+        // 2️⃣ Création du personnel
         const personnel = await tx.personnel.create({
           data: {
             ...dto,
             password: hashedPassword,
-            is_active: dto.role_personnel === 'CHEF_SERVICE'
+            is_active: dto.role_personnel === 'CHEF_SERVICE',
           },
           include: { service: true },
         });
 
-        this.logger.log(
-          `✅ Personnel créé `,
-        );
+        this.logger.log(`✅ Personnel créé : ${personnel.prenom_personnel} ${personnel.nom_personnel}`);
 
-        // 3️⃣ Préparation du contenu email
+        // 3️⃣ Si CHEF_SERVICE, mettre à jour la table service
+        if (dto.role_personnel === 'CHEF_SERVICE') {
+          await tx.service.update({
+            where: { id_service: dto.id_service },
+            data: { id_chefdeservice: personnel.id_personnel },
+          });
+          this.logger.log(`🔄 Service mis à jour avec id_chefdeservice = ${personnel.id_personnel}`);
+        }
+
+        // 4️⃣ Préparation du contenu email
         let subject: string;
         let message: string;
-        let recipient: string;
+        const recipient = personnel.email_personnel!;
 
         if (dto.role_personnel === 'CHEF_SERVICE') {
           subject = 'Création de votre compte Chef de Service';
@@ -121,7 +126,7 @@ export class RhService {
           <p>Veuillez modifier votre mot de passe après la première connexion.</p>
           <p>Cordialement,<br>L’équipe RH</p>
         `;
-          recipient = personnel.email_personnel!;
+        
         } else {
           subject = 'Bienvenue dans le système de gestion des congés';
           message = `
@@ -130,28 +135,26 @@ export class RhService {
           <p>Vous pouvez maintenant accéder à votre interface dédiée.</p>
           <p>Cordialement,<br>L’équipe RH</p>
         `;
-          recipient = personnel.email_personnel!;
         }
 
-        // 4️⃣ Envoi d’email (si échec → rollback de la transaction)
+        // 5️⃣ Envoi d’email
         try {
           await this.emailService.sendNotificationEmail(recipient, subject, message);
-          this.logger.log(`📩 Email envoyé `);
+          this.logger.log(`📩 Email envoyé à ${recipient}`);
         } catch (emailError) {
           this.logger.error(`❌ Erreur lors de l’envoi d’email: ${emailError.message}`);
-          // Lever l’erreur pour forcer le rollback de la transaction
           throw new Error('Échec lors de l’envoi de l’email');
         }
 
-        // 5️⃣ Retour succès si tout s’est bien passé
+        // 6️⃣ Retour succès
         return { success: true, id: personnel.id_personnel };
       } catch (error) {
         this.logger.error(`🚨 Erreur lors de la création du personnel: ${error.message}`);
-        // Toute erreur déclenche un rollback automatique
         throw new BadRequestException('Impossible de créer le personnel');
       }
     });
   }
+
 
   async getAllPersonnel() {
     return this.prisma.personnel.findMany({ include: { service: true } });
@@ -239,10 +242,16 @@ export class RhService {
   // -----------------------------
   async consulterDemandes() {
     return this.prisma.demande.findMany({
+      where: {
+        statut_demande: 'APPROUVEE', // filtre les demandes approuvées
+      },
       include: {
         periodeConge: true,
         service: true,
+        personnel: true,
+        chefService: true,
       },
     });
   }
+
 }

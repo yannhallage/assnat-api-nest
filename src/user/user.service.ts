@@ -6,7 +6,7 @@ import type { Personnel } from '@prisma/client';
 import { StatutDemande } from '@prisma/client';
 
 @Injectable()
-export class UserService {
+export class  UserService {
   private readonly logger = new Logger(UserService.name);
 
   constructor(private prisma: PrismaService) { }
@@ -18,14 +18,15 @@ export class UserService {
   async createDemande(id_personnel: string, dto: CreateDemandeDto) {
     let periodeCongeId = dto.id_periodeconge;
 
-    // Récupérer le personnel pour obtenir id_service
+    // 1️⃣ Récupérer le personnel et son service
     const personnel = await this.prisma.personnel.findUnique({
       where: { id_personnel },
+      include: { service: true }, // inclure le service pour récupérer id_chefdeservice
     });
 
     if (!personnel) throw new NotFoundException('Personnel non trouvé');
 
-    // Si le DTO contient les infos pour créer une période de congé
+    // 2️⃣ Si le DTO contient les infos pour créer une période de congé
     if (dto.date_debut && dto.date_fin && dto.nb_jour && dto.id_typeconge) {
       const debut = new Date(dto.date_debut);
       const fin = new Date(dto.date_fin);
@@ -53,15 +54,15 @@ export class UserService {
       periodeCongeId = periode.id_periodeconge;
     }
 
-    // Créer la demande en utilisant l'id de la période de congé et les infos du personnel
+    // 3️⃣ Créer la demande en récupérant l'id_chef_service depuis le service du personnel
     const demande = await this.prisma.demande.create({
       data: {
         type_demande: dto.type_demande,
         motif: dto.motif,
         id_personnel: personnel.id_personnel,
-        id_service: personnel.id_service || dto.id_service,
+        id_service: personnel.id_service,
         id_periodeconge: periodeCongeId,
-        id_chef_service: dto.id_chef_service,
+        id_chef_service: personnel.service?.id_chefdeservice || null, // ✅ récupération automatique
       },
       include: { periodeConge: true, service: true, personnel: true },
     });
@@ -69,6 +70,7 @@ export class UserService {
     this.logger.log(`Demande créée: ${demande.id_demande}`);
     return demande;
   }
+
 
 
 
@@ -98,9 +100,14 @@ export class UserService {
   // Récupérer toutes les demandes de l'utilisateur
   // -----------------------------
   async getMyDemandes(id_personnel: string) {
-    this.logger.log(`Récupération des demandes de ${id_personnel}`);
+    this.logger.log(`Récupération des demandes (EN_ATTENTE et APPROUVEE) pour ${id_personnel}`);
     return this.prisma.demande.findMany({
-      where: { id_personnel: id_personnel },
+      where: {
+        id_personnel,
+        statut_demande: {
+          in: ['EN_ATTENTE', 'APPROUVEE'],
+        },
+      },
       include: {
         periodeConge: { include: { typeConge: true } },
         service: true,
@@ -110,6 +117,8 @@ export class UserService {
       orderBy: { date_demande: 'desc' },
     });
   }
+
+
 
   // -----------------------------
   // Récupérer les fiches de congé
@@ -195,4 +204,25 @@ export class UserService {
     if (!demande) throw new NotFoundException('Demande non trouvée ou non autorisée');
     return demande;
   }
+
+  // -----------------------------
+  // Récupérer les historiques d'une demande
+  // -----------------------------
+  async getHistoriqueDemandes(id_personnel: string) {
+    this.logger.log(`Récupération des demandes (TERMINEE et REFUSEE) pour ${id_personnel}`);
+    return this.prisma.demande.findMany({
+      where: {
+        id_personnel,
+        statut_demande: { in: ['TERMINEE', 'REFUSEE'] },
+      },
+      include: {
+        periodeConge: { include: { typeConge: true } },
+        service: true,
+        discussions: { orderBy: { date_message: 'desc' } },
+        ficheDeConge: true,
+      },
+      orderBy: { date_demande: 'desc' },
+    });
+  }
+
 }

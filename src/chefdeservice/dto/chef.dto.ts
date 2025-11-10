@@ -1,15 +1,25 @@
-import { IsNotEmpty, IsString, IsOptional, IsEmail, IsUUID } from 'class-validator';
+import { IsNotEmpty, IsString, ValidateNested, IsOptional, IsEmail, IsUUID } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
+export class ChefActionDto {
+    @IsString() @IsNotEmpty()
+    id_personnel!: string;
+
+    @IsString() @IsNotEmpty()
+    id_service!: string;
+
+    @IsEmail()
+    email_travail?: string;
+}
+
 export class ApproveDemandeDto {
-    @ApiProperty({
-        description: 'Commentaire d\'approbation',
-        example: 'Demande approuvée',
-        required: false,
-    })
-    @IsString()
-    @IsOptional()
+    @IsString() @IsOptional()
     commentaire?: string;
+
+    @ValidateNested()
+    @Type(() => ChefActionDto)
+    chef!: ChefActionDto;
 }
 
 export class RejectDemandeDto {
@@ -20,6 +30,10 @@ export class RejectDemandeDto {
     @IsString()
     @IsNotEmpty()
     motif: string;
+
+    @ValidateNested()
+    @Type(() => ChefActionDto)
+    chef!: ChefActionDto;
 }
 
 // export class InvitePersonnelDto {

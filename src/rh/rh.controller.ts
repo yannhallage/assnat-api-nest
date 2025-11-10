@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, Logger } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, UseGuards, Logger } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { RhService } from './rh.service';
 import {
@@ -9,7 +9,11 @@ import {
   // CreateAlertDto,
 } from './dto/rh.dto';
 import { CreateTypeCongeDto } from './dto/create-type-conge.dto';
+import { RolesGuard } from 'src/shared/guards/roles.guard';
+// import { Roles } from 'src/shared/decorators/roles.decorator';
+import { JwtAuthGuard } from 'src/shared/guards/jwt-auth.guard';
 
+@UseGuards(JwtAuthGuard, RolesGuard)
 @ApiTags('Ressources Humaines')
 @Controller('rh')
 export class RhController {
@@ -17,7 +21,7 @@ export class RhController {
 
   constructor(private readonly rhService: RhService) { }
 
-  // -----------------------------
+  // ---------------
   // Directions
   // -----------------------------
   @Post('directions')

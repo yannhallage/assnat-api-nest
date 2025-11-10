@@ -12,20 +12,20 @@ export class CreateDemandeDto {
   @IsOptional()
   motif?: string;
 
-  @ApiPropertyOptional({ description: 'ID du service associé', example: 'uuid-service' })
-  @IsString()
-  @IsOptional()
-  id_service?: string;
+  // @ApiPropertyOptional({ description: 'ID du service associé', example: 'uuid-service' })
+  // @IsString()
+  // @IsOptional()
+  // id_service?: string;
 
   @ApiPropertyOptional({ description: 'ID de la période de congé associée', example: 'uuid-periode' })
   @IsString()
   @IsOptional()
   id_periodeconge?: string;
 
-  @ApiPropertyOptional({ description: 'ID du chef de service responsable', example: 'uuid-chef' })
-  @IsString()
-  @IsOptional()
-  id_chef_service?: string;
+  // @ApiPropertyOptional({ description: 'ID du chef de service responsable', example: 'uuid-chef' })
+  // @IsString()
+  // @IsOptional()
+  // id_chef_service?: string;
 
   @ApiProperty({
     description: 'Date de début du congé',
