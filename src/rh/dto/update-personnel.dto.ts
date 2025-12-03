@@ -93,4 +93,21 @@ export class UpdatePersonnelDto {
     })
     @IsOptional()
     is_active?: boolean;
+
+    @IsOptional()
+    @IsString()
+    ville_personnel?: string;
+
+    @IsOptional()
+    @IsString()
+    adresse_personnel?: string;
+
+    @IsOptional()
+    @IsString()
+    codepostal?: string;
+
+    @IsOptional()
+    @IsString()
+    pays_personnel?: string;
+
 }

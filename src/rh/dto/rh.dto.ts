@@ -289,6 +289,42 @@ export class UpdatePersonnelDto {
   telephone_personnel?: string;
 
   @ApiProperty({
+    description: 'Ville du personnel',
+    example: 'Québec',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  ville_personnel?: string;
+
+  @ApiProperty({
+    description: 'Adresse du personnel',
+    example: '123 rue de la Paix',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  adresse_personnel?: string;
+
+  @ApiProperty({
+    description: 'Code postal',
+    example: 'G1R 4P5',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  codepostal?: string;
+
+  @ApiProperty({
+    description: 'Pays du personnel',
+    example: 'Canada',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  pays_personnel?: string;
+
+  @ApiProperty({
     description: 'Rôle du personnel',
     example: 'EMPLOYE',
     enum: ['ADMIN', 'RH', 'CHEF_SERVICE', 'EMPLOYE'],

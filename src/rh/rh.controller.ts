@@ -115,7 +115,7 @@ export class RhController {
   @Put('personnels/:id')
   @ApiOperation({ summary: 'Mettre à jour un personnel' })
   @ApiResponse({ status: 200, description: 'Personnel mis à jour avec succès' })
-  async updatePersonnel(@Param('id') id: string, @Body() dto: UpdatePersonnelDto) {
+  async updatePersonnel(@Param('id') id: string, @Body() dto: any) {
     this.logger.log(`Mise à jour du personnel ${id}`);
     return this.rhService.updatePersonnel(id, dto);
   }

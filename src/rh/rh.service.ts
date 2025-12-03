@@ -5,9 +5,10 @@ import { CreateDirectionDto } from './dto/create-direction.dto';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { CreatePersonnelDto } from './dto/create-personnel.dto';
 import { CreateAlertDto } from './dto/create-alert.dto';
-import { UpdatePersonnelDto } from './dto/update-personnel.dto';
+// import { UpdatePersonnelDto } from './dto/update-personnel.dto';
 import { EmailService } from 'src/shared/mail/mail.service';
 import { CreateTypeCongeDto } from './dto/create-type-conge.dto';
+import { UpdatePersonnelDto } from './dto/rh.dto';
 
 @Injectable()
 export class RhService {
@@ -185,7 +186,7 @@ export class RhService {
   }
 
 
-  async updatePersonnel(id: string, dto: UpdatePersonnelDto) {
+  async updatePersonnel(id: string, dto: any) {
     return this.prisma.personnel.update({
       where: { id_personnel: id },
       data: dto,
