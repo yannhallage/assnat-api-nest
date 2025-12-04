@@ -83,47 +83,118 @@ export class ChefdeserviceService {
   async approveDemande(chef: Personnel, demandeId: string, approveDto: ApproveDemandeDto) {
     this.logger.log(`Approbation de la demande ${demandeId} par le chef ${chef.email_travail}`);
 
-    const demande = await this.prisma.demande.findFirst({
-      where: {
-        id_demande: demandeId,
-        id_service: chef.id_service,
-        statut_demande: 'EN_ATTENTE',
-      },
-      include: { personnel: true },
-    });
-
-    if (!demande) {
-      throw new NotFoundException('Demande non trouvée ou déjà traitée');
-    }
-
-    const updatedDemande = await this.prisma.demande.update({
-      where: { id_demande: demandeId },
-      data: {
-        statut_demande: 'APPROUVEE',
-      },
-    });
-
-    // Ajouter un commentaire si fourni
-    if (approveDto.commentaire) {
-      await this.prisma.discussion.create({
-        data: {
-          message: `[APPROUVÉE] ${approveDto.commentaire}`,
+    // Utiliser une transaction pour garantir la cohérence des données
+    return await this.prisma.$transaction(async (tx) => {
+      const demande = await tx.demande.findFirst({
+        where: {
           id_demande: demandeId,
+          id_service: chef.id_service,
+          statut_demande: 'EN_ATTENTE',
+        },
+        include: { 
+          personnel: true,
+          periodeConge: true,
+        }        
+      });
+
+      if (!demande) {
+        throw new NotFoundException('Demande non trouvée ou déjà traitée');
+      }
+
+      // Vérifier et réduire la disponibilité_day du personnel si une periodeConge est associée
+      this.logger.log(`🔍 [DEBUG] Vérification période de congé - id_periodeconge: ${demande.id_periodeconge || 'NULL'}, periodeConge: ${demande.periodeConge ? 'existe' : 'null'}, nb_jour: ${demande.periodeConge?.nb_jour || 'N/A'}, personnel: ${demande.personnel ? 'existe' : 'null'}, id_personnel: ${demande.id_personnel}`);
+      
+      // Vérifier si une période de congé est associée (soit via la relation, soit via l'ID)
+      if (demande.id_periodeconge) {
+        this.logger.log(`✅ [DEBUG] Condition remplie - id_periodeconge existe et personnel existe`);
+        
+        // Si la relation n'est pas chargée, la charger
+        let periodeConge = demande.periodeConge;
+        if (!periodeConge && demande.id_periodeconge) {
+          this.logger.log(`📥 [DEBUG] Chargement de la période de congé depuis la base de données`);
+          periodeConge = await tx.periodeConge.findUnique({
+            where: { id_periodeconge: demande.id_periodeconge },
+          });
+          this.logger.log(`📥 [DEBUG] Période de congé chargée - nb_jour: ${periodeConge?.nb_jour || 'N/A'}`);
+        }
+        
+        if (periodeConge && periodeConge.nb_jour > 0) {
+          const nbJour = periodeConge.nb_jour;
+          const disponibiliteActuelle = demande.personnel.disponibilité_day;
+
+          this.logger.log(`💰 [REDUCTION] Disponibilité actuelle: ${disponibiliteActuelle}, Jours demandés: ${nbJour}`);
+
+          // Vérifier que l'utilisateur a assez de jours disponibles
+          if (disponibiliteActuelle < nbJour) {
+            throw new BadRequestException(
+              `Jours disponibles insuffisants. Disponibilité actuelle: ${disponibiliteActuelle} jours, demandés: ${nbJour} jours`
+            );
+          }
+
+          const nouvelleDisponibilite = disponibiliteActuelle - nbJour;
+          
+          this.logger.log(`💰 [REDUCTION] Mise à jour - Ancienne: ${disponibiliteActuelle}, Nouvelle: ${nouvelleDisponibilite}`);
+          
+          // Mettre à jour la disponibilité dans la même transaction
+          const personnelUpdated = await tx.personnel.update({
+            where: { id_personnel: demande.id_personnel },
+            data: {
+              disponibilité_day: nouvelleDisponibilite,
+            },
+          });
+          
+          // Vérifier que la mise à jour a bien fonctionné
+          if (personnelUpdated.disponibilité_day !== nouvelleDisponibilite) {
+            this.logger.error(`❌ ERREUR: La disponibilité n'a pas été mise à jour correctement. Attendu: ${nouvelleDisponibilite}, Obtenu: ${personnelUpdated.disponibilité_day}`);
+            throw new InternalServerErrorException('Erreur lors de la mise à jour de la disponibilité');
+          }
+          
+          this.logger.log(`✅ [SUCCESS] Disponibilité réduite de ${nbJour} jours pour le personnel ${demande.id_personnel}. Nouvelle disponibilité: ${personnelUpdated.disponibilité_day}`);
+        } else {
+          this.logger.warn(`⚠️ [WARNING] Pas de réduction - periodeConge invalide ou nb_jour <= 0 (periodeConge: ${!!periodeConge}, nb_jour: ${periodeConge?.nb_jour || 'N/A'})`);
+        }
+      } else {
+        this.logger.warn(`⚠️ [WARNING] Pas de réduction - id_periodeconge: ${demande.id_periodeconge || 'NULL'}, personnel: ${!!demande.personnel}`);
+      }
+
+      // Approuver la demande
+      const updatedDemande = await tx.demande.update({
+        where: { id_demande: demandeId },
+        data: {
+          statut_demande: 'APPROUVEE',
         },
       });
-    }
 
-    // Envoyer une notification par email
-    if (demande.personnel.email_personnel) {
-      await this.emailService.sendNotificationEmail(
-        demande.personnel.email_personnel,
-        'Demande de congé approuvée',
-        `Votre demande de congé a été approuvée par votre chef de service.${approveDto.commentaire ? `<br><br>Commentaire: ${approveDto.commentaire}` : ''}`,
-      );
-    }
+      // Ajouter un commentaire si fourni (dans la transaction)
+      if (approveDto.commentaire) {
+        await tx.discussion.create({
+          data: {
+            message: `[APPROUVÉE] ${approveDto.commentaire}`,
+            id_demande: demandeId,
+          },
+        });
+      }
 
-    this.logger.log(`Demande ${demandeId} approuvée avec succès`);
-    return updatedDemande;
+      // Retourner la demande mise à jour avec les infos pour l'email
+      return { updatedDemande, emailPersonnel: demande.personnel?.email_personnel };
+    }).then(async ({ updatedDemande, emailPersonnel }) => {
+      // Envoyer une notification par email (après la transaction pour éviter les erreurs d'email de bloquer la transaction)
+      if (emailPersonnel) {
+        try {
+          await this.emailService.sendNotificationEmail(
+            emailPersonnel,
+            'Demande de congé approuvée',
+            `Votre demande de congé a été approuvée par votre chef de service.${approveDto.commentaire ? `<br><br>Commentaire: ${approveDto.commentaire}` : ''}`,
+          );
+        } catch (error) {
+          this.logger.error(`Erreur lors de l'envoi de l'email de notification: ${error.message}`);
+          // Ne pas faire échouer l'opération si l'email échoue
+        }
+      }
+
+      this.logger.log(`Demande ${demandeId} approuvée avec succès`);
+      return updatedDemande;
+    });
   }
 
   async rejectDemande(chef: Personnel, demandeId: string, rejectDto: RejectDemandeDto) {
