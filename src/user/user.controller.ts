@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Query, Param, Body, UseGuards, UnauthorizedException, Request, Logger, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Get, Put, Query, Param, Body, UseGuards, UnauthorizedException, Request, Logger, BadRequestException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiQuery } from '@nestjs/swagger';
 import { UserService } from './user.service';
 import type { Personnel } from '@prisma/client';
@@ -6,6 +6,8 @@ import {
   CreateDemandeDto,
   // CreatePeriodeCongeDto,
   CreateDiscussionDto,
+  UpdatePasswordDto,
+  UpdatePersonalInfoDto,
 } from './dto/user.dto';
 import { RolesGuard } from 'src/shared/guards/roles.guard';
 import { Roles } from 'src/shared/decorators/roles.decorator';
@@ -44,7 +46,51 @@ export class UserController {
     this.logger.log(`Création d'une demande pour le personnel ${id_personnel}`);
     return this.userService.createDemande(id_personnel, dto);
   }
-  
+
+   // -----------------------------
+  // Récupérer la disponibilité
+  // -----------------------------
+  @Get('disponibilite/:id')
+  @Roles('EMPLOYE', 'CHEF_SERVICE', 'RH', 'ADMIN')
+  @ApiOperation({ summary: 'Récupérer la disponibilité d\'un utilisateur' })
+  @ApiResponse({ status: 200, description: 'Disponibilité récupérée avec succès' })
+  @ApiResponse({ status: 404, description: 'Personnel non trouvé' })
+  async getDisponibilite(@Param('id') id: string) {
+    this.logger.log(`Récupération de la disponibilité pour ${id}`);
+    return this.userService.getDisponibilite(id);
+  }
+    // -----------------------------
+  // Mettre à jour le mot de passe
+  // -----------------------------
+  @Put('password/:id')
+  @Roles('EMPLOYE', 'CHEF_SERVICE', 'RH', 'ADMIN')
+  @ApiOperation({ summary: 'Mettre à jour le mot de passe' })
+  @ApiResponse({ status: 200, description: 'Mot de passe mis à jour avec succès' })
+  @ApiResponse({ status: 401, description: 'Ancien mot de passe incorrect' })
+  @ApiResponse({ status: 404, description: 'Personnel non trouvé' })
+  async updatePassword(
+    @Param('id') id: string,
+    @Body() dto: UpdatePasswordDto,
+  ) {
+    this.logger.log(`Mise à jour du mot de passe pour le personnel ${id}`);
+    return this.userService.updatePassword(id, dto);
+  }
+
+  // -----------------------------
+  // Mettre à jour les informations personnelles
+  // -----------------------------
+  @Put('info/:id')
+  @Roles('EMPLOYE', 'CHEF_SERVICE', 'RH', 'ADMIN')
+  @ApiOperation({ summary: 'Mettre à jour les informations personnelles' })
+  @ApiResponse({ status: 200, description: 'Informations personnelles mises à jour avec succès' })
+  @ApiResponse({ status: 404, description: 'Personnel non trouvé' })
+  async updatePersonalInfo(
+    @Param('id') id: string,
+    @Body() dto: UpdatePersonalInfoDto,
+  ) {
+    this.logger.log(`Mise à jour des informations personnelles pour le personnel ${id}`);
+    return this.userService.updatePersonalInfo(id, dto);
+  }
   // -----------------------------
   // Récupérer toutes mes demandes
   // -----------------------------
@@ -62,8 +108,6 @@ export class UserController {
     // Récupère toutes les demandes EN_ATTENTE ou APPROUVEE
     return this.userService.getMyDemandes(user);
   }
-
-
 
   // -----------------------------
   // Récupérer les détails d'une demande

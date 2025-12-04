@@ -69,6 +69,8 @@
       let redirect: string;
       switch (user.role_personnel) {
         case 'RH':
+          redirect = 'employe';
+          break;
         case 'ADMIN':
           redirect = 'rh';
           break;

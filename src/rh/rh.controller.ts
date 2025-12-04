@@ -83,6 +83,7 @@ export class RhController {
   @ApiResponse({ status: 201, description: 'Personnel créé avec succès' })
   async createPersonnel(@Body() dto: CreatePersonnelDto) {
     this.logger.log(`Création du personnel`);
+    console.log(dto);
     return this.rhService.createPersonnel(dto);
   }
   // -----------------------------
@@ -115,7 +116,7 @@ export class RhController {
   @Put('personnels/:id')
   @ApiOperation({ summary: 'Mettre à jour un personnel' })
   @ApiResponse({ status: 200, description: 'Personnel mis à jour avec succès' })
-  async updatePersonnel(@Param('id') id: string, @Body() dto: any) {
+  async updatePersonnel(@Param('id') id: string, @Body() dto: UpdatePersonnelDto) {
     this.logger.log(`Mise à jour du personnel ${id}`);
     return this.rhService.updatePersonnel(id, dto);
   }
@@ -126,6 +127,15 @@ export class RhController {
   async deletePersonnel(@Param('id') id: string) {
     this.logger.log(`Désactivation du personnel ${id}`);
     return this.rhService.deletePersonnel(id);
+  }
+
+  @Put('personnels/:id/archiver')
+  @ApiOperation({ summary: 'Archiver un personnel' })
+  @ApiResponse({ status: 200, description: 'Personnel archivé avec succès' })
+  @ApiResponse({ status: 404, description: 'Personnel non trouvé' })
+  async archiverPersonnel(@Param('id') id: string) {
+    this.logger.log(`Archivage du personnel ${id}`);
+    return this.rhService.archiverPersonnel(id);
   }
 
   // -----------------------------

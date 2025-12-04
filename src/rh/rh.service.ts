@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, Logger, BadRequestException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../shared/prisma/prisma.service';
-import { CreateDirectionDto } from './dto/create-direction.dto';
+import { CreateDirectionDto } from './dto/rh.dto';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { CreatePersonnelDto } from './dto/create-personnel.dto';
 import { CreateAlertDto } from './dto/create-alert.dto';
@@ -186,7 +186,7 @@ export class RhService {
   }
 
 
-  async updatePersonnel(id: string, dto: any) {
+  async updatePersonnel(id: string, dto: UpdatePersonnelDto) {
     return this.prisma.personnel.update({
       where: { id_personnel: id },
       data: dto,
@@ -198,6 +198,21 @@ export class RhService {
       where: { id_personnel: id },
       data: { is_active: false },
     });
+  }
+
+  async archiverPersonnel(id: string) {
+    const personnel = await this.prisma.personnel.findUnique({
+      where: { id_personnel: id },
+    });
+
+    if (!personnel) {
+      throw new NotFoundException('Personnel non trouvé');
+    }
+    return console.log('Personnel archivé');
+    // return this.prisma.personnel.update({
+    //   where: { id_personnel: id },
+    //   data: { is_archiver: true },
+    // });
   }
 
   // -----------------------------

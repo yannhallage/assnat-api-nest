@@ -1,9 +1,10 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException, Logger, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../shared/prisma/prisma.service';
 // import { CreateDemandeDto, CreatePeriodeCongeDto, CreateDiscussionDto } from './dto/user.dto';
-import { CreateDemandeDto, CreateDiscussionDto } from './dto/user.dto';
+import { CreateDemandeDto, CreateDiscussionDto, UpdatePasswordDto, UpdatePersonalInfoDto } from './dto/user.dto';
 import type { Personnel } from '@prisma/client';
 import { StatutDemande } from '@prisma/client';
+import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class  UserService {
@@ -223,6 +224,133 @@ export class  UserService {
       },
       orderBy: { date_demande: 'desc' },
     });
+  }
+
+  // -----------------------------
+  // Mettre à jour le mot de passe
+  // -----------------------------
+  async updatePassword(id_personnel: string, dto: UpdatePasswordDto) {
+    this.logger.log(`Mise à jour du mot de passe pour le personnel ${id_personnel}`);
+
+    // Récupérer le personnel
+    const personnel = await this.prisma.personnel.findUnique({
+      where: { id_personnel },
+    });
+
+    if (!personnel) {
+      throw new NotFoundException('Personnel non trouvé');
+    }
+
+    if (!personnel.password) {
+      throw new BadRequestException('Aucun mot de passe défini pour ce compte');
+    }
+
+    // Vérifier l'ancien mot de passe
+    const isOldPasswordValid = await bcrypt.compare(dto.ancien_mot_de_passe, personnel.password);
+    if (!isOldPasswordValid) {
+      throw new UnauthorizedException('Ancien mot de passe incorrect');
+    }
+
+    // Hasher le nouveau mot de passe
+    const hashedPassword = await bcrypt.hash(dto.nouveau_mot_de_passe, 10);
+
+    // Mettre à jour le mot de passe
+    const updatedPersonnel = await this.prisma.personnel.update({
+      where: { id_personnel },
+      data: { password: hashedPassword },
+      select: {
+        id_personnel: true,
+        nom_personnel: true,
+        prenom_personnel: true,
+        email_travail: true,
+      },
+    });
+
+    this.logger.log(`Mot de passe mis à jour pour ${updatedPersonnel.email_travail}`);
+    return { message: 'Mot de passe mis à jour avec succès', personnel: updatedPersonnel };
+  }
+
+  // -----------------------------
+  // Mettre à jour les informations personnelles
+  // -----------------------------
+  async updatePersonalInfo(id_personnel: string, dto: UpdatePersonalInfoDto) {
+    this.logger.log(`Mise à jour des informations personnelles pour le personnel ${id_personnel}`);
+
+    // Vérifier que le personnel existe
+    const personnel = await this.prisma.personnel.findUnique({
+      where: { id_personnel },
+    });
+
+    if (!personnel) {
+      throw new NotFoundException('Personnel non trouvé');
+    }
+
+    // Préparer les données à mettre à jour
+    const updateData: any = {};
+
+    if (dto.telephone_travail !== undefined) {
+      updateData.telephone_travail = dto.telephone_travail;
+    }
+    if (dto.telephone_personnel !== undefined) {
+      updateData.telephone_personnel = dto.telephone_personnel;
+    }
+    if (dto.ville_personnel !== undefined) {
+      updateData.ville_personnel = dto.ville_personnel;
+    }
+    if (dto.telephone_contact_urgence !== undefined) {
+      updateData.telephone_contact_urgence = dto.telephone_contact_urgence;
+    }
+    if (dto.nom_contact_urgence !== undefined) {
+      updateData.nom_contact_urgence = dto.nom_contact_urgence;
+    }
+    if (dto.date_naissance !== undefined) {
+      updateData.date_naissance = new Date(dto.date_naissance);
+    }
+
+    // Mettre à jour le personnel
+    const updatedPersonnel = await this.prisma.personnel.update({
+      where: { id_personnel },
+      data: updateData,
+      select: {
+        id_personnel: true,
+        nom_personnel: true,
+        prenom_personnel: true,
+        email_travail: true,
+        telephone_travail: true,
+        telephone_personnel: true,
+        ville_personnel: true,
+        telephone_contact_urgence: true,
+        nom_contact_urgence: true,
+        date_naissance: true,
+      },
+    });
+
+    this.logger.log(`Informations personnelles mises à jour pour ${updatedPersonnel.email_travail}`);
+    return updatedPersonnel;
+  }
+
+  // -----------------------------
+  // Récupérer la disponibilité d'un personnel
+  // -----------------------------
+  async getDisponibilite(id_personnel: string) {
+    this.logger.log(`Récupération de la disponibilité pour le personnel ${id_personnel}`);
+
+    const personnel = await this.prisma.personnel.findUnique({
+      where: { id_personnel },
+      select: {
+        id_personnel: true,
+        disponibilité_day: true,
+      },
+    });
+
+    if (!personnel) {
+      throw new NotFoundException('Personnel non trouvé');
+    }
+
+    return {
+      // id_personnel: personnel.id_personnel,
+      disponibilité_day: personnel.disponibilité_day,
+    };
   }
 
 }

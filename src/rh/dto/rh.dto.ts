@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsOptional, IsEmail, IsUUID, IsInt, Min } from 'class-validator';
+import { IsNotEmpty, IsString, IsOptional, IsEmail, IsUUID, IsInt, Min, IsDateString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateDirectionDto {
@@ -29,11 +29,92 @@ export class CreateDirectionDto {
   @ApiProperty({
     description: 'Email de la direction',
     example: 'direction@assnat.qc.ca',
+  })
+  @IsEmail()
+  @IsNotEmpty()
+  email_direction: string;
+
+  @ApiProperty({
+    description: 'Nombre de personnel',
+    example: 50,
+  })
+  @IsInt()
+  @Min(0)
+  @IsNotEmpty()
+  @IsOptional()
+  nb_personnel?: number;
+
+  @ApiProperty({
+    description: 'Numéro de la direction',
+    example: '418-123-4567',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  numero_direction?: string;
+
+  @ApiProperty({
+    description: 'Email professionnel de la direction',
+    example: 'business@assnat.qc.ca',
     required: false,
   })
   @IsEmail()
   @IsOptional()
-  email_direction?: string;
+  business_email?: string;
+
+  @ApiProperty({
+    description: 'Téléphone professionnel de la direction',
+    example: '418-123-4567',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  business_phone?: string;
+
+  @ApiProperty({
+    description: 'Email du directeur',
+    example: 'directeur@assnat.qc.ca',
+    required: false,
+  })
+  @IsEmail()
+  @IsOptional()
+  directeur_email?: string;
+
+  @ApiProperty({
+    description: 'Téléphone du directeur',
+    example: '418-987-6543',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  directeur_phone?: string;
+
+  @ApiProperty({
+    description: 'Nombre de bureaux',
+    example: '10',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  nombre_bureau?: string;
+
+  @ApiProperty({
+    description: 'Nombre de services',
+    example: '5',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  nombre_service?: string;
+
+  @ApiProperty({
+    description: 'Motif de création de la direction',
+    example: 'Réorganisation structurelle',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  motif_creation?: string;
 
   @ApiProperty({
     description: 'Statut de la direction',
@@ -69,9 +150,7 @@ export class CreateServiceDto {
   @IsUUID()
   @IsNotEmpty()
   id_direction: string;
-  @IsUUID()
-  @IsNotEmpty()
-  id_chef_de_service: string;
+  
 }
 
 export class CreatePersonnelDto {
@@ -216,6 +295,15 @@ export class CreatePersonnelDto {
   type_personnel: 'PERMANENT' | 'CONTRACTUEL' | 'STAGIAIRE';
 
   @ApiProperty({
+    description: 'Date de naissance',
+    example: '1990-01-15',
+    required: false,
+  })
+  @IsOptional()
+  @IsDateString()
+  date_naissance?: Date;
+
+  @ApiProperty({
     description: 'ID du service',
     example: 'uuid-du-service',
   })
@@ -351,5 +439,7 @@ export class UpdatePersonnelDto {
   })
   @IsOptional()
   is_active?: boolean;
+  @IsOptional()
+  is_archiver?: boolean;
 }
 

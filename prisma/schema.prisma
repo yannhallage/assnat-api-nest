@@ -1,9 +1,5 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
-  // output   = "../generated/prisma"
 }
 
 datasource db {
@@ -11,46 +7,24 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ---------------------------
-// ENUMS
-// ---------------------------
-
-enum StatutDemande {
-  EN_ATTENTE
-  TERMINEE
-  APPROUVEE
-  REFUSEE
-  ANNULEE
-}
-
-enum RolePersonnel {
-  ADMIN
-  RH
-  CHEF_SERVICE
-  EMPLOYE
-}
-
-enum TypePersonnel {
-  PERMANENT
-  CONTRACTUEL
-  STAGIAIRE
-}
-
-// ---------------------------
-// MODELES PRINCIPAUX
-// ---------------------------
-
 model Direction {
-  id_direction    String   @id @default(uuid())
-  code_direction  String   @unique
-  nom_direction   String
-  nb_personnel    Int?     @default(0)
-  nom_directeur   String
-  email_direction String?
-  statut          String?  @default("ACTIF")
-  date_creation   DateTime @default(now())
-
-  services Service[]
+  id_direction      String    @id @default(uuid())
+  code_direction    String    @unique
+  nom_direction     String
+  nom_directeur     String
+  email_direction   String
+  nb_personnel      Int?       @default(0)
+  numero_direction  String?
+  business_email    String?
+  business_phone    String?
+  directeur_email   String?
+  directeur_phone   String?
+  nombre_bureau     String?
+  nombre_service    String?
+  motif_creation    String?
+  statut            String    @default("ACTIF")
+  date_creation     DateTime  @default(now())
+  services          Service[]
 
   @@map("directions")
 }
@@ -62,24 +36,23 @@ model Service {
   nb_personnel     Int?        @default(0)
   date_creation    DateTime    @default(now())
   id_direction     String
-  id_chefdeservice String?      @default("a definir")  // ✅ valeur par défaut vide
-  direction        Direction   @relation(fields: [id_direction], references: [id_direction])
-  personnels       Personnel[]
+  id_chefdeservice String?     @default("a definir")
   demandes         Demande[]
+  personnels       Personnel[]
+  direction        Direction   @relation(fields: [id_direction], references: [id_direction])
 
   @@map("services")
 }
 
-
 model Personnel {
-  id_personnel              String        @id @default(uuid())
+  id_personnel              String         @id @default(uuid())
   nom_personnel             String
   prenom_personnel          String
-  email_personnel           String?       @unique
-  email_travail             String?       @unique
-  password                  String? // Mot de passe hashé
+  email_personnel           String?        @unique
+  email_travail             String?        @unique
+  password                  String?
   date_naissance            DateTime?
-  matricule_personnel       String?       @unique
+  matricule_personnel       String?        @unique
   telephone_travail         String?
   telephone_personnel       String?
   ville_personnel           String?
@@ -88,42 +61,38 @@ model Personnel {
   pays_personnel            String?
   telephone_contact_urgence String?
   nom_contact_urgence       String?
-  role_personnel            RolePersonnel @default(EMPLOYE)
-  disponibilité_day        Int           @default(45)
-  type_personnel            TypePersonnel @default(PERMANENT)
-  date_creation             DateTime      @default(now())
+  role_personnel            RolePersonnel  @default(EMPLOYE)
+  type_personnel            TypePersonnel  @default(PERMANENT)
+  date_creation             DateTime       @default(now())
   id_service                String
-  is_active                 Boolean       @default(true)
-
-  service             Service        @relation(fields: [id_service], references: [id_service])
-  demandes            Demande[]
-  fichesConge         FicheDeConge[]
-  // Si c'est un chef de service, il peut avoir des demandes à approuver
-  demandesEnCoursChef Demande[]      @relation("ChefDemande")
+  is_active                 Boolean        @default(true)
+  disponibilité_day        Int            @default(45)
+  demandesEnCoursChef       Demande[]      @relation("ChefDemande")
+  demandes                  Demande[]
+  fichesConge               FicheDeConge[]
+  service                   Service        @relation(fields: [id_service], references: [id_service])
 
   @@map("personnels")
 }
 
 model TypeConge {
-  id_typeconge      String   @id @default(uuid())
-  libelle_typeconge String   @unique
-  date_creation     DateTime @default(now())
-  is_active         Boolean  @default(true)
-
-  periodesConge PeriodeConge[]
+  id_typeconge      String         @id @default(uuid())
+  libelle_typeconge String         @unique
+  date_creation     DateTime       @default(now())
+  is_active         Boolean        @default(true)
+  periodesConge     PeriodeConge[]
 
   @@map("types_conge")
 }
 
 model PeriodeConge {
-  id_periodeconge String   @id @default(uuid())
+  id_periodeconge String    @id @default(uuid())
   date_debut      DateTime
   date_fin        DateTime
   nb_jour         Int
   id_typeconge    String
-
-  typeConge TypeConge @relation(fields: [id_typeconge], references: [id_typeconge])
-  demandes  Demande[]
+  demandes        Demande[]
+  typeConge       TypeConge @relation(fields: [id_typeconge], references: [id_typeconge])
 
   @@map("periodes_conge")
 }
@@ -137,15 +106,13 @@ model Demande {
   id_personnel    String
   id_service      String?
   id_periodeconge String?
-  id_chef_service String? // Chef de service responsable
-
-  personnel    Personnel     @relation(fields: [id_personnel], references: [id_personnel])
-  service      Service?      @relation(fields: [id_service], references: [id_service])
-  periodeConge PeriodeConge? @relation(fields: [id_periodeconge], references: [id_periodeconge])
-  discussions  Discussion[]
-  // Chef de service responsable de cette demande
-  chefService  Personnel?    @relation("ChefDemande", fields: [id_chef_service], references: [id_personnel])
-  ficheDeConge FicheDeConge?
+  id_chef_service String?
+  chefService     Personnel?    @relation("ChefDemande", fields: [id_chef_service], references: [id_personnel])
+  periodeConge    PeriodeConge? @relation(fields: [id_periodeconge], references: [id_periodeconge])
+  personnel       Personnel     @relation(fields: [id_personnel], references: [id_personnel])
+  service         Service?      @relation(fields: [id_service], references: [id_service])
+  discussions     Discussion[]
+  ficheDeConge    FicheDeConge?
 
   @@map("demandes")
 }
@@ -156,22 +123,41 @@ model Discussion {
   date_message  DateTime @default(now())
   heure_message String?
   id_demande    String
-
-  demande Demande @relation(fields: [id_demande], references: [id_demande])
+  demande       Demande  @relation(fields: [id_demande], references: [id_demande])
 
   @@map("discussions")
 }
 
 model FicheDeConge {
-  id_ficheconge String   @id @default(uuid())
+  id_ficheconge String    @id @default(uuid())
   message       String?
-  date_message  DateTime @default(now())
+  date_message  DateTime  @default(now())
   heure_message String?
-  id_demande    String   @unique
+  id_demande    String    @unique
   id_personnel  String
-
-  demande   Demande   @relation(fields: [id_demande], references: [id_demande])
-  personnel Personnel @relation(fields: [id_personnel], references: [id_personnel])
+  demande       Demande   @relation(fields: [id_demande], references: [id_demande])
+  personnel     Personnel @relation(fields: [id_personnel], references: [id_personnel])
 
   @@map("fiches_conge")
+}
+
+enum StatutDemande {
+  EN_ATTENTE
+  APPROUVEE
+  REFUSEE
+  ANNULEE
+  TERMINEE
+}
+
+enum RolePersonnel {
+  ADMIN
+  RH
+  CHEF_SERVICE
+  EMPLOYE
+}
+
+enum TypePersonnel {
+  PERMANENT
+  CONTRACTUEL
+  STAGIAIRE
 }
