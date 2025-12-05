@@ -158,7 +158,12 @@ export class  UserService {
     if (!demande) throw new NotFoundException('Demande non trouvée ou non autorisée');
 
     const discussion = await this.prisma.discussion.create({
-      data: { message: dto.message, heure_message: dto.heure_message, id_demande: demandeId },
+      data: { 
+        message: dto.message, 
+        heure_message: dto.heure_message, 
+        auteur_message: dto.auteur_message,
+        id_demande: demandeId 
+      },
     });
 
     this.logger.log(`Discussion ajoutée: ${discussion.id_discussion}`);
@@ -189,11 +194,11 @@ export class  UserService {
   // -----------------------------
   // Récupérer les détails d'une demande
   // -----------------------------
-  async getDemandeDetails(user: Personnel, demandeId: string) {
-    this.logger.log(`Récupération des détails de la demande ${demandeId} par ${user.email_travail}`);
+  async getDemandeDetails(demandeId: string) {
+    this.logger.log(`Récupération des détails de la demande ${demandeId}}`);
 
     const demande = await this.prisma.demande.findFirst({
-      where: { id_demande: demandeId, id_personnel: user.id_personnel },
+      where: { id_demande: demandeId},
       include: {
         periodeConge: { include: { typeConge: true } },
         service: true,

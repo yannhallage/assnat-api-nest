@@ -83,7 +83,7 @@ export class RhController {
   @ApiResponse({ status: 201, description: 'Personnel créé avec succès' })
   async createPersonnel(@Body() dto: CreatePersonnelDto) {
     this.logger.log(`Création du personnel`);
-    console.log(dto);
+    // console.log(dto);
     return this.rhService.createPersonnel(dto);
   }
   // -----------------------------

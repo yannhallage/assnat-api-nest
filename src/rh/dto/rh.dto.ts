@@ -150,6 +150,15 @@ export class CreateServiceDto {
   @IsUUID()
   @IsNotEmpty()
   id_direction: string;
+
+  @ApiProperty({
+    description: 'ID du chef de service',
+    example: 'uuid-du-chef-de-service',
+    required: false,
+  })
+  @IsUUID()
+  @IsOptional()
+  id_chefdeservice?: string;
   
 }
 

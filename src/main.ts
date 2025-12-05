@@ -12,6 +12,20 @@ config();
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
 
+  // -----------------------------
+  // Validation des variables d'environnement requises
+  // -----------------------------
+  const requiredEnvVars = ['JWT_SECRET'];
+  const missingVars = requiredEnvVars.filter((varName) => !process.env[varName]);
+  
+  if (missingVars.length > 0) {
+    logger.error(
+      `Variables d'environnement manquantes: ${missingVars.join(', ')}`,
+    );
+    logger.error('Veuillez créer un fichier .env avec ces variables.');
+    process.exit(1);
+  }
+
   // Création de l'application Nest
   const app = await NestFactory.create(AppModule, {
     logger: ['log', 'error', 'warn', 'debug', 'verbose'], // logging complet

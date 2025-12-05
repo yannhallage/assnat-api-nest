@@ -8,23 +8,23 @@ datasource db {
 }
 
 model Direction {
-  id_direction      String    @id @default(uuid())
-  code_direction    String    @unique
-  nom_direction     String
-  nom_directeur     String
-  email_direction   String
-  nb_personnel      Int?       @default(0)
-  numero_direction  String?
-  business_email    String?
-  business_phone    String?
-  directeur_email   String?
-  directeur_phone   String?
-  nombre_bureau     String?
-  nombre_service    String?
-  motif_creation    String?
-  statut            String    @default("ACTIF")
-  date_creation     DateTime  @default(now())
-  services          Service[]
+  id_direction     String    @id @default(uuid())
+  code_direction   String    @unique
+  nom_direction    String
+  nom_directeur    String
+  email_direction  String
+  statut           String    @default("ACTIF")
+  date_creation    DateTime  @default(now())
+  nb_personnel     Int?      @default(0)
+  business_email   String?
+  business_phone   String?
+  directeur_email  String?
+  directeur_phone  String?
+  motif_creation   String?
+  nombre_bureau    String?
+  nombre_service   String?
+  numero_direction String?
+  services         Service[]
 
   @@map("directions")
 }
@@ -118,12 +118,13 @@ model Demande {
 }
 
 model Discussion {
-  id_discussion String   @id @default(uuid())
-  message       String
-  date_message  DateTime @default(now())
-  heure_message String?
-  id_demande    String
-  demande       Demande  @relation(fields: [id_demande], references: [id_demande])
+  id_discussion  String   @id @default(uuid())
+  message        String
+  date_message   DateTime @default(now())
+  heure_message  String?
+  id_demande     String
+  auteur_message  String   @default("inconnu")
+  demande        Demande  @relation(fields: [id_demande], references: [id_demande])
 
   @@map("discussions")
 }
@@ -139,6 +140,15 @@ model FicheDeConge {
   personnel     Personnel @relation(fields: [id_personnel], references: [id_personnel])
 
   @@map("fiches_conge")
+}
+
+model InteractionRh {
+  id_interaction_rh String   @id @default(uuid())
+  titre             String
+  message           String
+  date              DateTime @default(now())
+
+  @@map("interactions_rh")
 }
 
 enum StatutDemande {

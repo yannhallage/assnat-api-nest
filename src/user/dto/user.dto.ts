@@ -109,6 +109,14 @@ export class CreateDiscussionDto {
   @IsString()
   @IsOptional()
   heure_message?: string;
+
+  @ApiProperty({
+    description: 'Auteur du message',
+    example: 'Jean Dupont',
+  })
+  @IsString()
+  @IsNotEmpty()
+  auteur_message: string;
 }
 
 export class UpdatePasswordDto {

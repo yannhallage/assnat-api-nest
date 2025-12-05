@@ -445,7 +445,12 @@ export class ChefdeserviceService {
       if (!demande) throw new NotFoundException('Demande non trouvée ou non autorisée');
   
       const discussion = await this.prisma.discussion.create({
-        data: { message: dto.message, heure_message: dto.heure_message, id_demande: demandeId },
+        data: { 
+          message: dto.message, 
+          heure_message: dto.heure_message, 
+          auteur_message: dto.auteur_message,
+          id_demande: demandeId 
+        },
       });
   
       this.logger.log(`Discussion ajoutée: ${discussion.id_discussion}`);

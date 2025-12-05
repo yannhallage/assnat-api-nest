@@ -118,11 +118,11 @@ export class UserController {
   @ApiResponse({ status: 200, description: 'Détails de la demande' })
   @ApiResponse({ status: 404, description: 'Demande non trouvée' })
   async getDemandeDetails(
-    @Body('user') user: Personnel,
+    // @Body('user') user: Personnel,
     @Param('id') id: string,
   ) {
-    this.logger.log(`Récupération des détails de la demande ${id} pour ${user.email_travail}`);
-    return this.userService.getDemandeDetails(user, id);
+    this.logger.log(`Récupération des détails de la demande ${id}`);
+    return this.userService.getDemandeDetails(id);
   }
 
   // -----------------------------
