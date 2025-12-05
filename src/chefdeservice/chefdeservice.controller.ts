@@ -186,6 +186,35 @@ export class ChefdeserviceController {
     return this.chefdeserviceService.getHistoriqueDemandes(id_chef);
   }
   // -----------------------------
+  // Récupérer toutes les discussions d'une demande
+  // -----------------------------
+  @Get('demandes/:id/discussions')
+  @ApiOperation({ summary: 'Récupérer toutes les discussions d\'une demande' })
+  @ApiParam({
+    name: 'id',
+    type: String,
+    description: 'ID de la demande',
+    example: 'uuid-demande',
+  })
+  @ApiQuery({
+    name: 'id_chef',
+    description: 'ID du chef de service',
+    required: true,
+    example: 'uuid-chef',
+  })
+  @ApiResponse({ status: 200, description: 'Liste des discussions' })
+  @ApiResponse({ status: 404, description: 'Demande non trouvée ou non autorisée' })
+  async getDiscussions(
+    // @Query('id_chef') id_chef: string,
+    @Param('id') demandeId: string,
+  ) {
+    this.logger.log(
+      `Récupération des discussions pour la demande ${demandeId} par le chef }`,
+    );
+    return this.chefdeserviceService.getDiscussionsByDemande(demandeId);
+  }
+
+  // -----------------------------
   // Ajouter une discussion à une demande
   // -----------------------------
   @Post('demandes/:id/discussions')

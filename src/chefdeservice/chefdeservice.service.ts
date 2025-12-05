@@ -402,6 +402,40 @@ export class ChefdeserviceService {
     }
   }
 
+  async getDiscussionsByDemande(demandeId: string) {
+    this.logger.log(`Récupération des discussions pour la demande ${demandeId} par le chef }`);
+
+    // Récupérer le chef avec son service
+    // const chef = await this.prisma.personnel.findUnique({
+    //   where: { id_personnel: id_chef },
+    //   include: { service: true },
+    // });
+
+    // if (!chef) throw new NotFoundException('Chef de service non trouvé');
+    // if (!chef.service) throw new NotFoundException('Service du chef introuvable');
+
+    // Vérifier que la demande existe et appartient au service du chef
+    const demande = await this.prisma.demande.findFirst({
+      where: {
+        id_demande: demandeId,
+        // id_service: chef.service.id_service,
+      },
+    });
+
+    if (!demande) {
+      throw new NotFoundException('Demande non trouvée ou non autorisée');
+    }
+
+    // Récupérer les discussions liées à la demande, triées par date croissante
+    const discussions = await this.prisma.discussion.findMany({
+      where: { id_demande: demandeId },
+      orderBy: { date_message: 'asc' },
+    });
+
+    this.logger.log(`Nombre de discussions récupérées: ${discussions.length}`);
+    return discussions;
+  }
+
   async addDiscussionToDemande(id_chef: string, demandeId: string, dto: CreateDiscussionDto) {
       this.logger.log(`Ajout d'une discussion à la demande ${demandeId}`);
   
