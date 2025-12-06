@@ -244,45 +244,89 @@ export class ChefdeserviceService {
   async revokeDemande(chef: Personnel, demandeId: string) {
     this.logger.log(`Révocation de la demande ${demandeId} par le chef ${chef.email_travail}`);
 
-    const demande = await this.prisma.demande.findFirst({
-      where: {
-        id_demande: demandeId,
-        id_service: chef.id_service,
-        statut_demande: 'APPROUVEE',
-      },
-      include: { personnel: true },
+    // Utiliser une transaction pour garantir la cohérence des données
+    return await this.prisma.$transaction(async (tx) => {
+      const demande = await tx.demande.findFirst({
+        where: {
+          id_demande: demandeId,
+          id_service: chef.id_service,
+          statut_demande: 'APPROUVEE',
+        },
+        include: { 
+          personnel: true,
+          periodeConge: true,
+        },
+      });
+
+      if (!demande) {
+        throw new NotFoundException('Demande non trouvée ou non approuvée');
+      }
+
+      // Remettre les jours de congé au personnel si une periodeConge est associée
+      if (demande.id_periodeconge) {
+        // Si la relation n'est pas chargée, la charger
+        let periodeConge = demande.periodeConge;
+        if (!periodeConge && demande.id_periodeconge) {
+          periodeConge = await tx.periodeConge.findUnique({
+            where: { id_periodeconge: demande.id_periodeconge },
+          });
+        }
+        
+        if (periodeConge && periodeConge.nb_jour > 0) {
+          const nbJour = periodeConge.nb_jour;
+          const disponibiliteActuelle = demande.personnel.disponibilité_day;
+          const nouvelleDisponibilite = disponibiliteActuelle + nbJour;
+
+          this.logger.log(`💰 [RESTAURATION] Disponibilité actuelle: ${disponibiliteActuelle}, Jours à remettre: ${nbJour}, Nouvelle disponibilité: ${nouvelleDisponibilite}`);
+
+          // Mettre à jour la disponibilité dans la même transaction
+          await tx.personnel.update({
+            where: { id_personnel: demande.id_personnel },
+            data: {
+              disponibilité_day: nouvelleDisponibilite,
+            },
+          });
+
+          this.logger.log(`✅ [SUCCESS] Disponibilité restaurée de ${nbJour} jours pour le personnel ${demande.id_personnel}`);
+        }
+      }
+
+      // Révoquer la demande
+      const updatedDemande = await tx.demande.update({
+        where: { id_demande: demandeId },
+        data: {
+          statut_demande: 'REFUSEE',
+        },
+      });
+
+      // Ajouter un commentaire de révocation
+      await tx.discussion.create({
+        data: {
+          message: '[RÉVOQUÉE] Cette demande a été révoquée par le chef de service',
+          id_demande: demandeId,
+        },
+      });
+
+      // Retourner la demande mise à jour avec les infos pour l'email
+      return { updatedDemande, emailPersonnel: demande.personnel?.email_personnel };
+    }).then(async ({ updatedDemande, emailPersonnel }) => {
+      // Envoyer une notification par email (après la transaction pour éviter les erreurs d'email de bloquer la transaction)
+      if (emailPersonnel) {
+        try {
+          await this.emailService.sendNotificationEmail(
+            emailPersonnel,
+            'Demande de congé révoquée',
+            'Votre demande de congé approuvée a été révoquée par votre chef de service.',
+          );
+        } catch (error) {
+          this.logger.error(`Erreur lors de l'envoi de l'email de notification: ${error.message}`);
+          // Ne pas faire échouer l'opération si l'email échoue
+        }
+      }
+
+      this.logger.log(`Demande ${demandeId} révoquée avec succès`);
+      return updatedDemande;
     });
-
-    if (!demande) {
-      throw new NotFoundException('Demande non trouvée ou non approuvée');
-    }
-
-    const updatedDemande = await this.prisma.demande.update({
-      where: { id_demande: demandeId },
-      data: {
-        statut_demande: 'REFUSEE',
-      },
-    });
-
-    // Ajouter un commentaire de révocation
-    await this.prisma.discussion.create({
-      data: {
-        message: '[RÉVOQUÉE] Cette demande a été révoquée par le chef de service',
-        id_demande: demandeId,
-      },
-    });
-
-    // Envoyer une notification par email
-    if (demande.personnel.email_personnel) {
-      await this.emailService.sendNotificationEmail(
-        demande.personnel.email_personnel,
-        'Demande de congé révoquée',
-        'Votre demande de congé approuvée a été révoquée par votre chef de service.',
-      );
-    }
-
-    this.logger.log(`Demande ${demandeId} révoquée avec succès`);
-    return updatedDemande;
   }
 
   async deleteDemande(chef: Personnel, demandeId: string) {
@@ -456,4 +500,14 @@ export class ChefdeserviceService {
       this.logger.log(`Discussion ajoutée: ${discussion.id_discussion}`);
       return discussion;
     }
+
+  // -----------------------------
+  // Interactions RH
+  // -----------------------------
+  async getAllInteractionsRh() {
+    this.logger.log('Récupération de toutes les interactions RH');
+    return this.prisma.interactionRh.findMany({
+      orderBy: { date: 'desc' },
+    });
+  }
 }

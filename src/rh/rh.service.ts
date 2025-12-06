@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, Logger, BadRequestException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../shared/prisma/prisma.service';
-import { CreateDirectionDto } from './dto/rh.dto';
+import { CreateDirectionDto, CreateInteractionRhDto } from './dto/rh.dto';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { CreatePersonnelDto } from './dto/create-personnel.dto';
 import { CreateAlertDto } from './dto/create-alert.dto';
@@ -275,6 +275,39 @@ export class RhService {
         personnel: true,
         chefService: true,
       },
+    });
+  }
+
+  // -----------------------------
+  // Interactions RH
+  // -----------------------------
+  async createInteractionRh(dto: CreateInteractionRhDto) {
+    return this.prisma.interactionRh.create({
+      data: {
+        titre: dto.titre,
+        message: dto.message,
+        date: dto.date ? new Date(dto.date) : new Date(),
+      },
+    });
+  }
+
+  async getAllInteractionsRh() {
+    return this.prisma.interactionRh.findMany({
+      orderBy: { date: 'desc' },
+    });
+  }
+
+  async deleteInteractionRh(id: string) {
+    const interaction = await this.prisma.interactionRh.findUnique({
+      where: { id_interaction_rh: id },
+    });
+
+    if (!interaction) {
+      throw new NotFoundException('Interaction RH non trouvée');
+    }
+
+    return this.prisma.interactionRh.delete({
+      where: { id_interaction_rh: id },
     });
   }
 

@@ -358,4 +358,14 @@ export class  UserService {
     };
   }
 
+  // -----------------------------
+  // Interactions RH
+  // -----------------------------
+  async getAllInteractionsRh() {
+    this.logger.log('Récupération de toutes les interactions RH');
+    return this.prisma.interactionRh.findMany({
+      orderBy: { date: 'desc' },
+    });
+  }
+
 }

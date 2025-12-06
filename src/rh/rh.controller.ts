@@ -6,6 +6,7 @@ import {
   CreateServiceDto,
   CreatePersonnelDto,
   UpdatePersonnelDto,
+  CreateInteractionRhDto,
   // CreateAlertDto,
 } from './dto/rh.dto';
 import { CreateTypeCongeDto } from './dto/create-type-conge.dto';
@@ -169,5 +170,33 @@ export class RhController {
   async getDemandes() {
     this.logger.log('Récupération de toutes les demandes');
     return this.rhService.consulterDemandes();
+  }
+
+  // -----------------------------
+  // Interactions RH
+  // -----------------------------
+  @Post('interactions-rh')
+  @ApiOperation({ summary: 'Créer une nouvelle interaction RH' })
+  @ApiResponse({ status: 201, description: 'Interaction RH créée avec succès' })
+  async createInteractionRh(@Body() dto: CreateInteractionRhDto) {
+    this.logger.log(`Création d'une interaction RH: ${dto.titre}`);
+    return this.rhService.createInteractionRh(dto);
+  }
+
+  @Get('interactions-rh')
+  @ApiOperation({ summary: 'Récupérer toutes les interactions RH' })
+  @ApiResponse({ status: 200, description: 'Liste des interactions RH' })
+  async getAllInteractionsRh() {
+    this.logger.log('Récupération de toutes les interactions RH');
+    return this.rhService.getAllInteractionsRh();
+  }
+
+  @Delete('interactions-rh/:id')
+  @ApiOperation({ summary: 'Supprimer une interaction RH' })
+  @ApiResponse({ status: 200, description: 'Interaction RH supprimée avec succès' })
+  @ApiResponse({ status: 404, description: 'Interaction RH non trouvée' })
+  async deleteInteractionRh(@Param('id') id: string) {
+    this.logger.log(`Suppression de l'interaction RH ${id}`);
+    return this.rhService.deleteInteractionRh(id);
   }
 }

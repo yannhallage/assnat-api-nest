@@ -216,8 +216,20 @@ export class UserController {
       throw new UnauthorizedException('Utilisateur non identifié');
     }
 
-    this.logger.log(`Récupération de l’historique des demandes pour ${userId}`);
+    this.logger.log(`Récupération de l'historique des demandes pour ${userId}`);
     return this.userService.getHistoriqueDemandes(userId);
+  }
+
+  // -----------------------------
+  // Interactions RH
+  // -----------------------------
+  @Get('interactions-rh')
+  @Roles('EMPLOYE', 'CHEF_SERVICE', 'RH', 'ADMIN')
+  @ApiOperation({ summary: 'Récupérer toutes les interactions RH' })
+  @ApiResponse({ status: 200, description: 'Liste des interactions RH' })
+  async getAllInteractionsRh() {
+    this.logger.log('Récupération de toutes les interactions RH');
+    return this.userService.getAllInteractionsRh();
   }
   // prochaine route annulée la demandes et telechager fiche congé
 }

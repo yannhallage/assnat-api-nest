@@ -248,4 +248,15 @@ export class ChefdeserviceController {
     );
     return this.chefdeserviceService.addDiscussionToDemande(id_chef, demandeId, dto);
   }
+
+  // -----------------------------
+  // Interactions RH
+  // -----------------------------
+  @Get('interactions-rh')
+  @ApiOperation({ summary: 'Récupérer toutes les interactions RH' })
+  @ApiResponse({ status: 200, description: 'Liste des interactions RH' })
+  async getAllInteractionsRh() {
+    this.logger.log('Récupération de toutes les interactions RH');
+    return this.chefdeserviceService.getAllInteractionsRh();
+  }
 }

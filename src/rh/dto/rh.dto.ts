@@ -452,3 +452,30 @@ export class UpdatePersonnelDto {
   is_archiver?: boolean;
 }
 
+export class CreateInteractionRhDto {
+  @ApiProperty({
+    description: 'Titre de l\'interaction RH',
+    example: 'Réunion mensuelle',
+  })
+  @IsString()
+  @IsNotEmpty()
+  titre: string;
+
+  @ApiProperty({
+    description: 'Message de l\'interaction RH',
+    example: 'Réunion prévue le 15 du mois pour discuter des congés',
+  })
+  @IsString()
+  @IsNotEmpty()
+  message: string;
+
+  @ApiProperty({
+    description: 'Date de l\'interaction RH',
+    example: '2025-01-15T10:00:00.000Z',
+    required: false,
+  })
+  @IsOptional()
+  @IsDateString()
+  date?: Date;
+}
+
