@@ -7,6 +7,12 @@ import {
   CreatePersonnelDto,
   UpdatePersonnelDto,
   CreateInteractionRhDto,
+  CreateContratDto,
+  UpdateContratDto,
+  CreatePaieDto,
+  UpdatePaieDto,
+  CreatePersonnelDocumentDto,
+  UpdatePersonnelDocumentDto,
   // CreateAlertDto,
 } from './dto/rh.dto';
 import { CreateTypeCongeDto } from './dto/create-type-conge.dto';
@@ -198,5 +204,197 @@ export class RhController {
   async deleteInteractionRh(@Param('id') id: string) {
     this.logger.log(`Suppression de l'interaction RH ${id}`);
     return this.rhService.deleteInteractionRh(id);
+  }
+
+  // -----------------------------
+  // Contrats
+  // -----------------------------
+  @Post('contrats')
+  @ApiOperation({ summary: 'Créer un nouveau contrat' })
+  @ApiResponse({ status: 201, description: 'Contrat créé avec succès' })
+  @ApiResponse({ status: 404, description: 'Personnel non trouvé' })
+  @ApiResponse({ status: 400, description: 'Données invalides' })
+  async createContrat(@Body() dto: CreateContratDto) {
+    this.logger.log(`Création d'un contrat pour le personnel ${dto.id_personnel}`);
+    return this.rhService.createContrat(dto);
+  }
+
+  @Get('contrats')
+  @ApiOperation({ summary: 'Récupérer tous les contrats' })
+  @ApiResponse({ status: 200, description: 'Liste des contrats' })
+  async getAllContrats() {
+    this.logger.log('Récupération de tous les contrats');
+    return this.rhService.getAllContrats();
+  }
+
+  @Get('contrats/:id')
+  @ApiOperation({ summary: 'Récupérer un contrat par ID' })
+  @ApiResponse({ status: 200, description: 'Contrat trouvé' })
+  @ApiResponse({ status: 404, description: 'Contrat non trouvé' })
+  async getContratById(@Param('id') id: string) {
+    this.logger.log(`Récupération du contrat ${id}`);
+    return this.rhService.getContratById(id);
+  }
+
+  @Get('personnels/:idPersonnel/contrats')
+  @ApiOperation({ summary: 'Récupérer tous les contrats d\'un personnel' })
+  @ApiResponse({ status: 200, description: 'Liste des contrats du personnel' })
+  @ApiResponse({ status: 404, description: 'Personnel non trouvé' })
+  async getContratsByPersonnel(@Param('idPersonnel') idPersonnel: string) {
+    this.logger.log(`Récupération des contrats du personnel ${idPersonnel}`);
+    return this.rhService.getContratsByPersonnel(idPersonnel);
+  }
+
+  @Put('contrats/:id')
+  @ApiOperation({ summary: 'Mettre à jour un contrat' })
+  @ApiResponse({ status: 200, description: 'Contrat mis à jour avec succès' })
+  @ApiResponse({ status: 404, description: 'Contrat non trouvé' })
+  @ApiResponse({ status: 400, description: 'Données invalides' })
+  async updateContrat(@Param('id') id: string, @Body() dto: UpdateContratDto) {
+    this.logger.log(`Mise à jour du contrat ${id}`);
+    return this.rhService.updateContrat(id, dto);
+  }
+
+  @Delete('contrats/:id')
+  @ApiOperation({ summary: 'Supprimer un contrat' })
+  @ApiResponse({ status: 200, description: 'Contrat supprimé avec succès' })
+  @ApiResponse({ status: 404, description: 'Contrat non trouvé' })
+  async deleteContrat(@Param('id') id: string) {
+    this.logger.log(`Suppression du contrat ${id}`);
+    return this.rhService.deleteContrat(id);
+  }
+
+  // -----------------------------
+  // Paies
+  // -----------------------------
+  @Post('paies')
+  @ApiOperation({ summary: 'Créer une nouvelle paie' })
+  @ApiResponse({ status: 201, description: 'Paie créée avec succès' })
+  @ApiResponse({ status: 404, description: 'Personnel non trouvé' })
+  @ApiResponse({ status: 400, description: 'Données invalides ou paie déjà existante' })
+  async createPaie(@Body() dto: CreatePaieDto) {
+    this.logger.log(`Création d'une paie pour le personnel ${dto.id_personnel}`);
+    return this.rhService.createPaie(dto);
+  }
+
+  @Get('paies')
+  @ApiOperation({ summary: 'Récupérer toutes les paies' })
+  @ApiResponse({ status: 200, description: 'Liste des paies' })
+  async getAllPaies() {
+    this.logger.log('Récupération de toutes les paies');
+    return this.rhService.getAllPaies();
+  }
+
+  @Get('paies/:id')
+  @ApiOperation({ summary: 'Récupérer une paie par ID' })
+  @ApiResponse({ status: 200, description: 'Paie trouvée' })
+  @ApiResponse({ status: 404, description: 'Paie non trouvée' })
+  async getPaieById(@Param('id') id: string) {
+    this.logger.log(`Récupération de la paie ${id}`);
+    return this.rhService.getPaieById(id);
+  }
+
+  @Get('personnels/:idPersonnel/paies')
+  @ApiOperation({ summary: 'Récupérer toutes les paies d\'un personnel' })
+  @ApiResponse({ status: 200, description: 'Liste des paies du personnel' })
+  @ApiResponse({ status: 404, description: 'Personnel non trouvé' })
+  async getPaiesByPersonnel(@Param('idPersonnel') idPersonnel: string) {
+    this.logger.log(`Récupération des paies du personnel ${idPersonnel}`);
+    return this.rhService.getPaiesByPersonnel(idPersonnel);
+  }
+
+  @Get('paies/mois/:mois/annee/:annee')
+  @ApiOperation({ summary: 'Récupérer toutes les paies d\'un mois et d\'une année' })
+  @ApiResponse({ status: 200, description: 'Liste des paies pour le mois/année' })
+  async getPaiesByMoisAnnee(@Param('mois') mois: string, @Param('annee') annee: string) {
+    this.logger.log(`Récupération des paies pour ${mois}/${annee}`);
+    return this.rhService.getPaiesByMoisAnnee(parseInt(mois), parseInt(annee));
+  }
+
+  @Put('paies/:id')
+  @ApiOperation({ summary: 'Mettre à jour une paie' })
+  @ApiResponse({ status: 200, description: 'Paie mise à jour avec succès' })
+  @ApiResponse({ status: 404, description: 'Paie non trouvée' })
+  @ApiResponse({ status: 400, description: 'Données invalides ou paie déjà existante' })
+  async updatePaie(@Param('id') id: string, @Body() dto: UpdatePaieDto) {
+    this.logger.log(`Mise à jour de la paie ${id}`);
+    return this.rhService.updatePaie(id, dto);
+  }
+
+  @Delete('paies/:id')
+  @ApiOperation({ summary: 'Supprimer une paie' })
+  @ApiResponse({ status: 200, description: 'Paie supprimée avec succès' })
+  @ApiResponse({ status: 404, description: 'Paie non trouvée' })
+  async deletePaie(@Param('id') id: string) {
+    this.logger.log(`Suppression de la paie ${id}`);
+    return this.rhService.deletePaie(id);
+  }
+
+  // -----------------------------
+  // Documents du Personnel
+  // -----------------------------
+  @Post('personnels/documents')
+  @ApiOperation({ summary: 'Créer un nouveau document pour un personnel' })
+  @ApiResponse({ status: 201, description: 'Document créé avec succès' })
+  @ApiResponse({ status: 404, description: 'Personnel non trouvé' })
+  @ApiResponse({ status: 400, description: 'Données invalides' })
+  async createPersonnelDocument(@Body() dto: CreatePersonnelDocumentDto) {
+    this.logger.log(`Création d'un document pour le personnel ${dto.id_personnel}`);
+    return this.rhService.createPersonnelDocument(dto);
+  }
+
+  @Get('personnels/documents')
+  @ApiOperation({ summary: 'Récupérer tous les documents du personnel' })
+  @ApiResponse({ status: 200, description: 'Liste des documents' })
+  async getAllPersonnelDocuments() {
+    this.logger.log('Récupération de tous les documents du personnel');
+    return this.rhService.getAllPersonnelDocuments();
+  }
+
+  @Get('personnels/documents/:id')
+  @ApiOperation({ summary: 'Récupérer un document par ID' })
+  @ApiResponse({ status: 200, description: 'Document trouvé' })
+  @ApiResponse({ status: 404, description: 'Document non trouvé' })
+  async getPersonnelDocumentById(@Param('id') id: string) {
+    this.logger.log(`Récupération du document ${id}`);
+    return this.rhService.getPersonnelDocumentById(id);
+  }
+
+  @Get('personnels/:idPersonnel/documents')
+  @ApiOperation({ summary: 'Récupérer tous les documents d\'un personnel' })
+  @ApiResponse({ status: 200, description: 'Liste des documents du personnel' })
+  @ApiResponse({ status: 404, description: 'Personnel non trouvé' })
+  async getPersonnelDocumentsByPersonnel(@Param('idPersonnel') idPersonnel: string) {
+    this.logger.log(`Récupération des documents du personnel ${idPersonnel}`);
+    return this.rhService.getPersonnelDocumentsByPersonnel(idPersonnel);
+  }
+
+  @Get('personnels/:idPersonnel/documents/type/:type')
+  @ApiOperation({ summary: 'Récupérer les documents d\'un personnel par type' })
+  @ApiResponse({ status: 200, description: 'Liste des documents du type spécifié' })
+  @ApiResponse({ status: 404, description: 'Personnel non trouvé' })
+  @ApiResponse({ status: 400, description: 'Type de document invalide' })
+  async getPersonnelDocumentsByType(@Param('idPersonnel') idPersonnel: string, @Param('type') type: string) {
+    this.logger.log(`Récupération des documents de type ${type} pour le personnel ${idPersonnel}`);
+    return this.rhService.getPersonnelDocumentsByType(idPersonnel, type);
+  }
+
+  @Put('personnels/documents/:id')
+  @ApiOperation({ summary: 'Mettre à jour un document' })
+  @ApiResponse({ status: 200, description: 'Document mis à jour avec succès' })
+  @ApiResponse({ status: 404, description: 'Document non trouvé' })
+  @ApiResponse({ status: 400, description: 'Données invalides' })
+  async updatePersonnelDocument(@Param('id') id: string, @Body() dto: UpdatePersonnelDocumentDto) {
+    this.logger.log(`Mise à jour du document ${id}`);
+    return this.rhService.updatePersonnelDocument(id, dto);
+  }
+
+  @Delete('personnels/documents/:id')
+  @ApiOperation({ summary: 'Supprimer un document' })
+  @ApiResponse({ status: 200, description: 'Document supprimé avec succès' })
+  @ApiResponse({ status: 404, description: 'Document non trouvé' })
+  async deletePersonnelDocument(@Param('id') id: string) {
+    this.logger.log(`Suppression du document ${id}`);
+    return this.rhService.deletePersonnelDocument(id);
   }
 }

@@ -5,6 +5,7 @@ import type { Personnel } from '@prisma/client';
 import * as bcrypt from 'bcryptjs'
 import { PrismaService } from 'src/shared/prisma/prisma.service';
 import { EmailService } from 'src/shared/mail/mail.service';
+import { NotificationService } from 'src/shared/notification/notification.service';
 import { InvitePersonnelDto } from './dto/Inviter.dto';
 import { CreateDiscussionDto } from 'src/user/dto/user.dto';
 
@@ -15,6 +16,7 @@ export class ChefdeserviceService {
   constructor(
     private prisma: PrismaService,
     private emailService: EmailService,
+    private notificationService: NotificationService,
     // private authService: AuthService,
   ) { }
 
@@ -175,9 +177,15 @@ export class ChefdeserviceService {
         });
       }
 
-      // Retourner la demande mise à jour avec les infos pour l'email
-      return { updatedDemande, emailPersonnel: demande.personnel?.email_personnel };
-    }).then(async ({ updatedDemande, emailPersonnel }) => {
+      // Retourner la demande mise à jour avec les infos pour l'email et la notification
+      return { 
+        updatedDemande, 
+        emailPersonnel: demande.personnel?.email_personnel,
+        idPersonnel: demande.personnel?.id_personnel,
+        nomPersonnel: demande.personnel?.nom_personnel,
+        prenomPersonnel: demande.personnel?.prenom_personnel,
+      };
+    }).then(async ({ updatedDemande, emailPersonnel, idPersonnel, nomPersonnel, prenomPersonnel }) => {
       // Envoyer une notification par email (après la transaction pour éviter les erreurs d'email de bloquer la transaction)
       if (emailPersonnel) {
         try {
@@ -189,6 +197,22 @@ export class ChefdeserviceService {
         } catch (error) {
           this.logger.error(`Erreur lors de l'envoi de l'email de notification: ${error.message}`);
           // Ne pas faire échouer l'opération si l'email échoue
+        }
+      }
+
+      // Créer une notification en base de données et l'envoyer via Pusher
+      if (idPersonnel) {
+        try {
+          await this.notificationService.createNotification(
+            idPersonnel,
+            'Demande de congé approuvée',
+            `Votre demande de congé a été approuvée par votre chef de service.${approveDto.commentaire ? ` Commentaire: ${approveDto.commentaire}` : ''}`,
+            updatedDemande.id_demande,
+          );
+          this.logger.log(`Notification créée pour le personnel: ${idPersonnel}`);
+        } catch (error: any) {
+          this.logger.error(`Erreur lors de la création de la notification: ${error.message}`);
+          // Ne pas faire échouer l'opération si la notification échoue
         }
       }
 
@@ -230,11 +254,29 @@ export class ChefdeserviceService {
 
     // Envoyer une notification par email
     if (demande.personnel.email_personnel) {
-      await this.emailService.sendNotificationEmail(
-        demande.personnel.email_personnel,
+      try {
+        await this.emailService.sendNotificationEmail(
+          demande.personnel.email_personnel,
+          'Demande de congé refusée',
+          `Votre demande de congé a été refusée par votre chef de service.<br><br>Motif: ${rejectDto.motif}`,
+        );
+      } catch (error) {
+        this.logger.error(`Erreur lors de l'envoi de l'email de notification: ${error.message}`);
+      }
+    }
+
+    // Créer une notification en base de données et l'envoyer via Pusher
+    try {
+      await this.notificationService.createNotification(
+        demande.personnel.id_personnel,
         'Demande de congé refusée',
-        `Votre demande de congé a été refusée par votre chef de service.<br><br>Motif: ${rejectDto.motif}`,
+        `Votre demande de congé a été refusée par votre chef de service. Motif: ${rejectDto.motif}`,
+        demandeId,
       );
+      this.logger.log(`Notification créée pour le personnel: ${demande.personnel.id_personnel}`);
+    } catch (error: any) {
+      this.logger.error(`Erreur lors de la création de la notification: ${error.message}`);
+      // Ne pas faire échouer l'opération si la notification échoue
     }
 
     this.logger.log(`Demande ${demandeId} refusée avec succès`);
@@ -277,7 +319,7 @@ export class ChefdeserviceService {
           const disponibiliteActuelle = demande.personnel.disponibilité_day;
           const nouvelleDisponibilite = disponibiliteActuelle + nbJour;
 
-          this.logger.log(`💰 [RESTAURATION] Disponibilité actuelle: ${disponibiliteActuelle}, Jours à remettre: ${nbJour}, Nouvelle disponibilité: ${nouvelleDisponibilite}`);
+          this.logger.log(`[RESTAURATION] Disponibilité actuelle: ${disponibiliteActuelle}, Jours à remettre: ${nbJour}, Nouvelle disponibilité: ${nouvelleDisponibilite}`);
 
           // Mettre à jour la disponibilité dans la même transaction
           await tx.personnel.update({
@@ -287,7 +329,7 @@ export class ChefdeserviceService {
             },
           });
 
-          this.logger.log(`✅ [SUCCESS] Disponibilité restaurée de ${nbJour} jours pour le personnel ${demande.id_personnel}`);
+          this.logger.log(`[SUCCESS] Disponibilité restaurée de ${nbJour} jours pour le personnel ${demande.id_personnel}`);
         }
       }
 
@@ -307,9 +349,13 @@ export class ChefdeserviceService {
         },
       });
 
-      // Retourner la demande mise à jour avec les infos pour l'email
-      return { updatedDemande, emailPersonnel: demande.personnel?.email_personnel };
-    }).then(async ({ updatedDemande, emailPersonnel }) => {
+      // Retourner la demande mise à jour avec les infos pour l'email et la notification
+      return { 
+        updatedDemande, 
+        emailPersonnel: demande.personnel?.email_personnel,
+        idPersonnel: demande.personnel?.id_personnel,
+      };
+    }).then(async ({ updatedDemande, emailPersonnel, idPersonnel }) => {
       // Envoyer une notification par email (après la transaction pour éviter les erreurs d'email de bloquer la transaction)
       if (emailPersonnel) {
         try {
@@ -321,6 +367,22 @@ export class ChefdeserviceService {
         } catch (error) {
           this.logger.error(`Erreur lors de l'envoi de l'email de notification: ${error.message}`);
           // Ne pas faire échouer l'opération si l'email échoue
+        }
+      }
+
+      // Créer une notification en base de données et l'envoyer via Pusher
+      if (idPersonnel) {
+        try {
+          await this.notificationService.createNotification(
+            idPersonnel,
+            'Demande de congé révoquée',
+            'Votre demande de congé approuvée a été révoquée par votre chef de service.',
+            updatedDemande.id_demande,
+          );
+          this.logger.log(`Notification créée pour le personnel: ${idPersonnel}`);
+        } catch (error: any) {
+          this.logger.error(`Erreur lors de la création de la notification: ${error.message}`);
+          // Ne pas faire échouer l'opération si la notification échoue
         }
       }
 
@@ -394,13 +456,33 @@ export class ChefdeserviceService {
       }
     }
 
-    // Envoyer l’email d’invitation
-    await this.emailService.sendInvitationEmail(
-      dto.email_personnel,
-      tempPassword,
-      dto.nom_personnel,
-      dto.prenom_personnel
-    );
+    // Envoyer l'email d'invitation
+    try {
+      await this.emailService.sendInvitationEmail(
+        dto.email_personnel,
+        tempPassword,
+        dto.nom_personnel,
+        dto.prenom_personnel
+      );
+    } catch (error) {
+      this.logger.error(`Erreur lors de l'envoi de l'email d'invitation: ${error.message}`);
+      throw error;
+    }
+
+    // Créer une notification pour le personnel invité (si le personnel existe)
+    if (personnel) {
+      try {
+        await this.notificationService.createNotification(
+          personnel.id_personnel,
+          'Invitation au système de gestion des congés',
+          `Vous avez été invité à rejoindre le système de gestion des congés. Votre mot de passe temporaire vous a été envoyé par email.`,
+        );
+        this.logger.log(`Notification créée pour le personnel invité: ${personnel.id_personnel}`);
+      } catch (error: any) {
+        this.logger.error(`Erreur lors de la création de la notification: ${error.message}`);
+        // Ne pas faire échouer l'opération si la notification échoue
+      }
+    }
 
     return { message: 'Invitation envoyée', personnelId: personnel.id_personnel };
   }

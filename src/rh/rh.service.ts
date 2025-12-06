@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, Logger, BadRequestException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../shared/prisma/prisma.service';
-import { CreateDirectionDto, CreateInteractionRhDto } from './dto/rh.dto';
+import { CreateDirectionDto, CreateInteractionRhDto, CreateContratDto, UpdateContratDto, CreatePaieDto, UpdatePaieDto, CreatePersonnelDocumentDto, UpdatePersonnelDocumentDto } from './dto/rh.dto';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { CreatePersonnelDto } from './dto/create-personnel.dto';
 import { CreateAlertDto } from './dto/create-alert.dto';
@@ -308,6 +308,385 @@ export class RhService {
 
     return this.prisma.interactionRh.delete({
       where: { id_interaction_rh: id },
+    });
+  }
+
+  // -----------------------------
+  // Contrats
+  // -----------------------------
+  async createContrat(dto: CreateContratDto) {
+    // Vérifier que le personnel existe
+    const personnel = await this.prisma.personnel.findUnique({
+      where: { id_personnel: dto.id_personnel },
+    });
+
+    if (!personnel) {
+      throw new NotFoundException('Personnel non trouvé');
+    }
+
+    // Vérifier que la date de fin est après la date de début si fournie
+    if (dto.date_fin && new Date(dto.date_fin) <= new Date(dto.date_debut)) {
+      throw new BadRequestException('La date de fin doit être postérieure à la date de début');
+    }
+
+    return this.prisma.contrat.create({
+      data: {
+        type_contrat: dto.type_contrat,
+        date_debut: new Date(dto.date_debut),
+        date_fin: dto.date_fin ? new Date(dto.date_fin) : null,
+        salaire_reference: dto.salaire_reference,
+        url_contrat: dto.url_contrat,
+        statut: dto.statut || 'Actif',
+        id_personnel: dto.id_personnel,
+      },
+      include: { personnel: true },
+    });
+  }
+
+  async getAllContrats() {
+    return this.prisma.contrat.findMany({
+      include: { personnel: true },
+      orderBy: { date_creation: 'desc' },
+    });
+  }
+
+  async getContratById(id: string) {
+    const contrat = await this.prisma.contrat.findUnique({
+      where: { id_contrat: id },
+      include: { personnel: true },
+    });
+
+    if (!contrat) {
+      throw new NotFoundException('Contrat non trouvé');
+    }
+
+    return contrat;
+  }
+
+  async getContratsByPersonnel(idPersonnel: string) {
+    // Vérifier que le personnel existe
+    const personnel = await this.prisma.personnel.findUnique({
+      where: { id_personnel: idPersonnel },
+    });
+
+    if (!personnel) {
+      throw new NotFoundException('Personnel non trouvé');
+    }
+
+    return this.prisma.contrat.findMany({
+      where: { id_personnel: idPersonnel },
+      include: { personnel: true },
+      orderBy: { date_debut: 'desc' },
+    });
+  }
+
+  async updateContrat(id: string, dto: UpdateContratDto) {
+    const contrat = await this.prisma.contrat.findUnique({
+      where: { id_contrat: id },
+    });
+
+    if (!contrat) {
+      throw new NotFoundException('Contrat non trouvé');
+    }
+
+    // Vérifier que la date de fin est après la date de début si fournie
+    const dateDebut = dto.date_debut ? new Date(dto.date_debut) : contrat.date_debut;
+    const dateFin = dto.date_fin ? new Date(dto.date_fin) : contrat.date_fin;
+
+    if (dateFin && dateFin <= dateDebut) {
+      throw new BadRequestException('La date de fin doit être postérieure à la date de début');
+    }
+
+    return this.prisma.contrat.update({
+      where: { id_contrat: id },
+      data: {
+        type_contrat: dto.type_contrat,
+        date_debut: dto.date_debut ? new Date(dto.date_debut) : undefined,
+        date_fin: dto.date_fin !== undefined ? (dto.date_fin ? new Date(dto.date_fin) : null) : undefined,
+        salaire_reference: dto.salaire_reference,
+        url_contrat: dto.url_contrat,
+        statut: dto.statut,
+      },
+      include: { personnel: true },
+    });
+  }
+
+  async deleteContrat(id: string) {
+    const contrat = await this.prisma.contrat.findUnique({
+      where: { id_contrat: id },
+    });
+
+    if (!contrat) {
+      throw new NotFoundException('Contrat non trouvé');
+    }
+
+    return this.prisma.contrat.delete({
+      where: { id_contrat: id },
+    });
+  }
+
+  // -----------------------------
+  // Paies
+  // -----------------------------
+  async createPaie(dto: CreatePaieDto) {
+    // Vérifier que le personnel existe
+    const personnel = await this.prisma.personnel.findUnique({
+      where: { id_personnel: dto.id_personnel },
+    });
+
+    if (!personnel) {
+      throw new NotFoundException('Personnel non trouvé');
+    }
+
+    // Vérifier qu'il n'existe pas déjà une paie pour ce mois/année/personnel
+    const existingPaie = await this.prisma.paie.findFirst({
+      where: {
+        id_personnel: dto.id_personnel,
+        mois: dto.mois,
+        annee: dto.annee,
+      },
+    });
+
+    if (existingPaie) {
+      throw new BadRequestException(`Une paie existe déjà pour ce personnel pour le mois ${dto.mois}/${dto.annee}`);
+    }
+
+    return this.prisma.paie.create({
+      data: {
+        mois: dto.mois,
+        annee: dto.annee,
+        salaire_net: dto.salaire_net,
+        salaire_brut: dto.salaire_brut,
+        primes: dto.primes,
+        deductions: dto.deductions,
+        url_bulletin: dto.url_bulletin,
+        id_personnel: dto.id_personnel,
+      },
+      include: { personnel: true },
+    });
+  }
+
+  async getAllPaies() {
+    return this.prisma.paie.findMany({
+      include: { personnel: true },
+      orderBy: [{ annee: 'desc' }, { mois: 'desc' }],
+    });
+  }
+
+  async getPaieById(id: string) {
+    const paie = await this.prisma.paie.findUnique({
+      where: { id_paie: id },
+      include: { personnel: true },
+    });
+
+    if (!paie) {
+      throw new NotFoundException('Paie non trouvée');
+    }
+
+    return paie;
+  }
+
+  async getPaiesByPersonnel(idPersonnel: string) {
+    // Vérifier que le personnel existe
+    const personnel = await this.prisma.personnel.findUnique({
+      where: { id_personnel: idPersonnel },
+    });
+
+    if (!personnel) {
+      throw new NotFoundException('Personnel non trouvé');
+    }
+
+    return this.prisma.paie.findMany({
+      where: { id_personnel: idPersonnel },
+      include: { personnel: true },
+      orderBy: [{ annee: 'desc' }, { mois: 'desc' }],
+    });
+  }
+
+  async getPaiesByMoisAnnee(mois: number, annee: number) {
+    return this.prisma.paie.findMany({
+      where: {
+        mois,
+        annee,
+      },
+      include: { personnel: true },
+      orderBy: { date_creation: 'desc' },
+    });
+  }
+
+  async updatePaie(id: string, dto: UpdatePaieDto) {
+    const paie = await this.prisma.paie.findUnique({
+      where: { id_paie: id },
+    });
+
+    if (!paie) {
+      throw new NotFoundException('Paie non trouvée');
+    }
+
+    // Si le mois ou l'année change, vérifier qu'il n'existe pas déjà une paie pour ce mois/année/personnel
+    const mois = dto.mois ?? paie.mois;
+    const annee = dto.annee ?? paie.annee;
+
+    if (dto.mois || dto.annee) {
+      const existingPaie = await this.prisma.paie.findFirst({
+        where: {
+          id_personnel: paie.id_personnel,
+          mois,
+          annee,
+          NOT: { id_paie: id },
+        },
+      });
+
+      if (existingPaie) {
+        throw new BadRequestException(`Une paie existe déjà pour ce personnel pour le mois ${mois}/${annee}`);
+      }
+    }
+
+    return this.prisma.paie.update({
+      where: { id_paie: id },
+      data: {
+        mois: dto.mois,
+        annee: dto.annee,
+        salaire_net: dto.salaire_net,
+        salaire_brut: dto.salaire_brut,
+        primes: dto.primes,
+        deductions: dto.deductions,
+        url_bulletin: dto.url_bulletin,
+      },
+      include: { personnel: true },
+    });
+  }
+
+  async deletePaie(id: string) {
+    const paie = await this.prisma.paie.findUnique({
+      where: { id_paie: id },
+    });
+
+    if (!paie) {
+      throw new NotFoundException('Paie non trouvée');
+    }
+
+    return this.prisma.paie.delete({
+      where: { id_paie: id },
+    });
+  }
+
+  // -----------------------------
+  // Documents du Personnel
+  // -----------------------------
+  async createPersonnelDocument(dto: CreatePersonnelDocumentDto) {
+    // Vérifier que le personnel existe
+    const personnel = await this.prisma.personnel.findUnique({
+      where: { id_personnel: dto.id_personnel },
+    });
+
+    if (!personnel) {
+      throw new NotFoundException('Personnel non trouvé');
+    }
+
+    return this.prisma.personnelDocument.create({
+      data: {
+        type_document: dto.type_document,
+        url_document: dto.url_document,
+        id_personnel: dto.id_personnel,
+      },
+      include: { personnel: true },
+    });
+  }
+
+  async getAllPersonnelDocuments() {
+    return this.prisma.personnelDocument.findMany({
+      include: { personnel: true },
+      orderBy: { date_ajout: 'desc' },
+    });
+  }
+
+  async getPersonnelDocumentById(id: string) {
+    const document = await this.prisma.personnelDocument.findUnique({
+      where: { id_document: id },
+      include: { personnel: true },
+    });
+
+    if (!document) {
+      throw new NotFoundException('Document non trouvé');
+    }
+
+    return document;
+  }
+
+  async getPersonnelDocumentsByPersonnel(idPersonnel: string) {
+    // Vérifier que le personnel existe
+    const personnel = await this.prisma.personnel.findUnique({
+      where: { id_personnel: idPersonnel },
+    });
+
+    if (!personnel) {
+      throw new NotFoundException('Personnel non trouvé');
+    }
+
+    return this.prisma.personnelDocument.findMany({
+      where: { id_personnel: idPersonnel },
+      include: { personnel: true },
+      orderBy: { date_ajout: 'desc' },
+    });
+  }
+
+  async getPersonnelDocumentsByType(idPersonnel: string, typeDocument: string) {
+    // Vérifier que le personnel existe
+    const personnel = await this.prisma.personnel.findUnique({
+      where: { id_personnel: idPersonnel },
+    });
+
+    if (!personnel) {
+      throw new NotFoundException('Personnel non trouvé');
+    }
+
+    // Vérifier que le type de document est valide
+    const validTypes = ['CNI', 'CONTRAT', 'DIPLOME', 'ATTestation'];
+    if (!validTypes.includes(typeDocument)) {
+      throw new BadRequestException(`Type de document invalide. Types valides: ${validTypes.join(', ')}`);
+    }
+
+    return this.prisma.personnelDocument.findMany({
+      where: {
+        id_personnel: idPersonnel,
+        type_document: typeDocument as any,
+      },
+      include: { personnel: true },
+      orderBy: { date_ajout: 'desc' },
+    });
+  }
+
+  async updatePersonnelDocument(id: string, dto: UpdatePersonnelDocumentDto) {
+    const document = await this.prisma.personnelDocument.findUnique({
+      where: { id_document: id },
+    });
+
+    if (!document) {
+      throw new NotFoundException('Document non trouvé');
+    }
+
+    return this.prisma.personnelDocument.update({
+      where: { id_document: id },
+      data: {
+        type_document: dto.type_document,
+        url_document: dto.url_document,
+      },
+      include: { personnel: true },
+    });
+  }
+
+  async deletePersonnelDocument(id: string) {
+    const document = await this.prisma.personnelDocument.findUnique({
+      where: { id_document: id },
+    });
+
+    if (!document) {
+      throw new NotFoundException('Document non trouvé');
+    }
+
+    return this.prisma.personnelDocument.delete({
+      where: { id_document: id },
     });
   }
 

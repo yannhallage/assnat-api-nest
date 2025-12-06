@@ -5,12 +5,16 @@ import { CreateDemandeDto, CreateDiscussionDto, UpdatePasswordDto, UpdatePersona
 import type { Personnel } from '@prisma/client';
 import { StatutDemande } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
+import { NotificationService } from '../shared/notification/notification.service';
 
 @Injectable()
 export class  UserService {
   private readonly logger = new Logger(UserService.name);
 
-  constructor(private prisma: PrismaService) { }
+  constructor(
+    private prisma: PrismaService,
+    private notificationService: NotificationService,
+  ) { }
 
   // -----------------------------
   // Créer une demande
@@ -69,6 +73,23 @@ export class  UserService {
     });
 
     this.logger.log(`Demande créée: ${demande.id_demande}`);
+
+    // 4️⃣ Créer une notification pour le chef de service si un chef est assigné
+    if (demande.id_chef_service) {
+      try {
+        await this.notificationService.createNotification(
+          demande.id_chef_service,
+          'Nouvelle demande de congé',
+          `${personnel.prenom_personnel} ${personnel.nom_personnel} a créé une nouvelle demande de congé qui nécessite votre validation.`,
+          demande.id_demande,
+        );
+        this.logger.log(`Notification créée pour le chef de service: ${demande.id_chef_service}`);
+      } catch (error: any) {
+        // Ne pas faire échouer la création de la demande si la notification échoue
+        this.logger.error(`Erreur lors de la création de la notification: ${error.message}`);
+      }
+    }
+
     return demande;
   }
 
@@ -272,6 +293,20 @@ export class  UserService {
     });
 
     this.logger.log(`Mot de passe mis à jour pour ${updatedPersonnel.email_travail}`);
+
+    // Créer une notification pour informer l'utilisateur du changement de mot de passe
+    try {
+      await this.notificationService.createNotification(
+        id_personnel,
+        'Mot de passe modifié',
+        'Votre mot de passe a été modifié avec succès. Si vous n\'êtes pas à l\'origine de cette modification, veuillez contacter l\'administrateur.',
+      );
+      this.logger.log(`Notification créée pour le changement de mot de passe: ${id_personnel}`);
+    } catch (error: any) {
+      this.logger.error(`Erreur lors de la création de la notification: ${error.message}`);
+      // Ne pas faire échouer l'opération si la notification échoue
+    }
+
     return { message: 'Mot de passe mis à jour avec succès', personnel: updatedPersonnel };
   }
 
@@ -331,6 +366,20 @@ export class  UserService {
     });
 
     this.logger.log(`Informations personnelles mises à jour pour ${updatedPersonnel.email_travail}`);
+
+    // Créer une notification pour informer l'utilisateur de la mise à jour
+    try {
+      await this.notificationService.createNotification(
+        id_personnel,
+        'Informations personnelles mises à jour',
+        'Vos informations personnelles ont été mises à jour avec succès.',
+      );
+      this.logger.log(`Notification créée pour la mise à jour des informations: ${id_personnel}`);
+    } catch (error: any) {
+      this.logger.error(`Erreur lors de la création de la notification: ${error.message}`);
+      // Ne pas faire échouer l'opération si la notification échoue
+    }
+
     return updatedPersonnel;
   }
 

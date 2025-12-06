@@ -61,6 +61,16 @@ model Personnel {
   pays_personnel            String?
   telephone_contact_urgence String?
   nom_contact_urgence       String?
+  poste                     String?
+  type_contrat              TypeContrat    @default(CDI)
+  date_embauche             DateTime?
+  date_fin_contrat          DateTime?
+  salaire_base              Float?
+  niveau_hierarchique       String?
+  numero_cnps               String?
+  banque_nom                String?
+  banque_rib                String?
+  statut_professionnel      StatutPersonnel @default(ACTIF)
   role_personnel            RolePersonnel  @default(EMPLOYE)
   type_personnel            TypePersonnel  @default(PERMANENT)
   date_creation             DateTime       @default(now())
@@ -70,6 +80,10 @@ model Personnel {
   demandesEnCoursChef       Demande[]      @relation("ChefDemande")
   demandes                  Demande[]
   fichesConge               FicheDeConge[]
+  notifications             Notification[]
+  documents                 PersonnelDocument[]
+  paies                     Paie[]
+  contrats                  Contrat[]
   service                   Service        @relation(fields: [id_service], references: [id_service])
 
   @@map("personnels")
@@ -113,6 +127,7 @@ model Demande {
   service         Service?      @relation(fields: [id_service], references: [id_service])
   discussions     Discussion[]
   ficheDeConge    FicheDeConge?
+  notifications   Notification[]
 
   @@map("demandes")
 }
@@ -127,6 +142,53 @@ model Discussion {
   demande        Demande  @relation(fields: [id_demande], references: [id_demande])
 
   @@map("discussions")
+}
+
+model Contrat {
+  id_contrat       String       @id @default(uuid())
+  type_contrat     TypeContrat
+  date_debut       DateTime
+  date_fin         DateTime?
+  salaire_reference Float?
+  url_contrat      String?      // fichier PDF
+  statut           String?      // Actif, Résilié, etc.
+
+  id_personnel     String
+  personnel        Personnel @relation(fields: [id_personnel], references: [id_personnel])
+
+  date_creation    DateTime     @default(now())
+
+  @@map("contrats")
+}
+
+model Paie {
+  id_paie          String    @id @default(uuid())
+  mois             Int
+  annee            Int
+  salaire_net      Float
+  salaire_brut     Float
+  primes           Float?
+  deductions       Float?
+  url_bulletin     String?   // fichier PDF du bulletin
+
+  id_personnel     String
+  personnel        Personnel @relation(fields: [id_personnel], references: [id_personnel])
+
+  date_creation    DateTime  @default(now())
+
+  @@map("paies")
+}
+
+model PersonnelDocument {
+  id_document      String    @id @default(uuid())
+  type_document    TypeDocument    // CNI, Contrat, Diplôme, Attestation, etc.
+  url_document     String
+  date_ajout       DateTime  @default(now())
+
+  id_personnel     String
+  personnel        Personnel @relation(fields: [id_personnel], references: [id_personnel])
+
+  @@map("personnel_documents")
 }
 
 model FicheDeConge {
@@ -151,6 +213,20 @@ model InteractionRh {
   @@map("interactions_rh")
 }
 
+model Notification {
+  id_notification  String    @id @default(uuid())
+  titre            String
+  message          String
+  is_lu            Boolean   @default(false)
+  date_creation    DateTime  @default(now())
+  id_personnel     String
+  id_demande       String?
+  personnel        Personnel @relation(fields: [id_personnel], references: [id_personnel])
+  demande          Demande?  @relation(fields: [id_demande], references: [id_demande])
+
+  @@map("notifications")
+}
+
 enum StatutDemande {
   EN_ATTENTE
   APPROUVEE
@@ -163,11 +239,36 @@ enum RolePersonnel {
   ADMIN
   RH
   CHEF_SERVICE
+  COMPTA_ADMIN
   EMPLOYE
 }
 
 enum TypePersonnel {
   PERMANENT
   CONTRACTUEL
+  CONSULTANT
+  TEMPORAIRE
   STAGIAIRE
+}
+
+enum TypeContrat {
+  CDI
+  CDD
+  STAGE
+  CONSULTANT
+}
+
+enum StatutPersonnel {
+  ACTIF
+  SUSPENDU
+  EN_CONGE
+  DEMISSIONNE
+  LICENCIE
+}
+
+enum TypeDocument {
+  CNI
+  CONTRAT
+  DIPLOME
+  ATTestation
 }

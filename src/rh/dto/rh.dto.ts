@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsOptional, IsEmail, IsUUID, IsInt, Min, IsDateString } from 'class-validator';
+import { IsNotEmpty, IsString, IsOptional, IsEmail, IsUUID, IsInt, Min, IsDateString, IsNumber, IsEnum, Max, Min as MinValidator } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateDirectionDto {
@@ -313,6 +313,98 @@ export class CreatePersonnelDto {
   date_naissance?: Date;
 
   @ApiProperty({
+    description: 'Poste du personnel',
+    example: 'Développeur Full Stack',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  poste?: string;
+
+  @ApiProperty({
+    description: 'Type de contrat',
+    example: 'CDI',
+    enum: ['CDI', 'CDD', 'STAGE', 'CONSULTANT'],
+    required: false,
+  })
+  @IsEnum(['CDI', 'CDD', 'STAGE', 'CONSULTANT'])
+  @IsOptional()
+  type_contrat?: 'CDI' | 'CDD' | 'STAGE' | 'CONSULTANT';
+
+  @ApiProperty({
+    description: 'Date d\'embauche',
+    example: '2024-01-15',
+    required: false,
+  })
+  @IsOptional()
+  @IsDateString()
+  date_embauche?: Date;
+
+  @ApiProperty({
+    description: 'Date de fin de contrat',
+    example: '2025-01-15',
+    required: false,
+  })
+  @IsOptional()
+  @IsDateString()
+  date_fin_contrat?: Date;
+
+  @ApiProperty({
+    description: 'Salaire de base',
+    example: 50000.00,
+    required: false,
+  })
+  @IsNumber()
+  @IsOptional()
+  salaire_base?: number;
+
+  @ApiProperty({
+    description: 'Niveau hiérarchique',
+    example: 'Niveau 3',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  niveau_hierarchique?: string;
+
+  @ApiProperty({
+    description: 'Numéro CNPS',
+    example: 'CNPS123456',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  numero_cnps?: string;
+
+  @ApiProperty({
+    description: 'Nom de la banque',
+    example: 'Banque Nationale',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  banque_nom?: string;
+
+  @ApiProperty({
+    description: 'RIB (Relevé d\'Identité Bancaire)',
+    example: 'FR76 1234 5678 9012 3456 7890 123',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  banque_rib?: string;
+
+  @ApiProperty({
+    description: 'Statut professionnel',
+    example: 'ACTIF',
+    enum: ['ACTIF', 'SUSPENDU', 'EN_CONGE', 'DEMISSIONNE', 'LICENCIE'],
+    required: false,
+  })
+  @IsEnum(['ACTIF', 'SUSPENDU', 'EN_CONGE', 'DEMISSIONNE', 'LICENCIE'])
+  @IsOptional()
+  statut_professionnel?: 'ACTIF' | 'SUSPENDU' | 'EN_CONGE' | 'DEMISSIONNE' | 'LICENCIE';
+
+  @ApiProperty({
     description: 'ID du service',
     example: 'uuid-du-service',
   })
@@ -448,8 +540,101 @@ export class UpdatePersonnelDto {
   })
   @IsOptional()
   is_active?: boolean;
+  
   @IsOptional()
   is_archiver?: boolean;
+
+  @ApiProperty({
+    description: 'Poste du personnel',
+    example: 'Développeur Full Stack',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  poste?: string;
+
+  @ApiProperty({
+    description: 'Type de contrat',
+    example: 'CDI',
+    enum: ['CDI', 'CDD', 'STAGE', 'CONSULTANT'],
+    required: false,
+  })
+  @IsEnum(['CDI', 'CDD', 'STAGE', 'CONSULTANT'])
+  @IsOptional()
+  type_contrat?: 'CDI' | 'CDD' | 'STAGE' | 'CONSULTANT';
+
+  @ApiProperty({
+    description: 'Date d\'embauche',
+    example: '2024-01-15',
+    required: false,
+  })
+  @IsOptional()
+  @IsDateString()
+  date_embauche?: Date;
+
+  @ApiProperty({
+    description: 'Date de fin de contrat',
+    example: '2025-01-15',
+    required: false,
+  })
+  @IsOptional()
+  @IsDateString()
+  date_fin_contrat?: Date;
+
+  @ApiProperty({
+    description: 'Salaire de base',
+    example: 50000.00,
+    required: false,
+  })
+  @IsNumber()
+  @IsOptional()
+  salaire_base?: number;
+
+  @ApiProperty({
+    description: 'Niveau hiérarchique',
+    example: 'Niveau 3',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  niveau_hierarchique?: string;
+
+  @ApiProperty({
+    description: 'Numéro CNPS',
+    example: 'CNPS123456',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  numero_cnps?: string;
+
+  @ApiProperty({
+    description: 'Nom de la banque',
+    example: 'Banque Nationale',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  banque_nom?: string;
+
+  @ApiProperty({
+    description: 'RIB (Relevé d\'Identité Bancaire)',
+    example: 'FR76 1234 5678 9012 3456 7890 123',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  banque_rib?: string;
+
+  @ApiProperty({
+    description: 'Statut professionnel',
+    example: 'ACTIF',
+    enum: ['ACTIF', 'SUSPENDU', 'EN_CONGE', 'DEMISSIONNE', 'LICENCIE'],
+    required: false,
+  })
+  @IsEnum(['ACTIF', 'SUSPENDU', 'EN_CONGE', 'DEMISSIONNE', 'LICENCIE'])
+  @IsOptional()
+  statut_professionnel?: 'ACTIF' | 'SUSPENDU' | 'EN_CONGE' | 'DEMISSIONNE' | 'LICENCIE';
 }
 
 export class CreateInteractionRhDto {
@@ -477,5 +662,319 @@ export class CreateInteractionRhDto {
   @IsOptional()
   @IsDateString()
   date?: Date;
+}
+
+export class CreateContratDto {
+  @ApiProperty({
+    description: 'Type de contrat',
+    example: 'CDI',
+    enum: ['CDI', 'CDD', 'STAGE', 'CONSULTANT'],
+  })
+  @IsEnum(['CDI', 'CDD', 'STAGE', 'CONSULTANT'])
+  @IsNotEmpty()
+  type_contrat: 'CDI' | 'CDD' | 'STAGE' | 'CONSULTANT';
+
+  @ApiProperty({
+    description: 'Date de début du contrat',
+    example: '2024-01-15',
+  })
+  @IsDateString()
+  @IsNotEmpty()
+  date_debut: Date;
+
+  @ApiProperty({
+    description: 'Date de fin du contrat',
+    example: '2025-01-15',
+    required: false,
+  })
+  @IsOptional()
+  @IsDateString()
+  date_fin?: Date;
+
+  @ApiProperty({
+    description: 'Salaire de référence',
+    example: 50000.00,
+    required: false,
+  })
+  @IsNumber()
+  @IsOptional()
+  salaire_reference?: number;
+
+  @ApiProperty({
+    description: 'URL du contrat (fichier PDF)',
+    example: 'https://example.com/contrat.pdf',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  url_contrat?: string;
+
+  @ApiProperty({
+    description: 'Statut du contrat',
+    example: 'Actif',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  statut?: string;
+
+  @ApiProperty({
+    description: 'ID du personnel',
+    example: 'uuid-du-personnel',
+  })
+  @IsUUID()
+  @IsNotEmpty()
+  id_personnel: string;
+}
+
+export class UpdateContratDto {
+  @ApiProperty({
+    description: 'Type de contrat',
+    example: 'CDI',
+    enum: ['CDI', 'CDD', 'STAGE', 'CONSULTANT'],
+    required: false,
+  })
+  @IsEnum(['CDI', 'CDD', 'STAGE', 'CONSULTANT'])
+  @IsOptional()
+  type_contrat?: 'CDI' | 'CDD' | 'STAGE' | 'CONSULTANT';
+
+  @ApiProperty({
+    description: 'Date de début du contrat',
+    example: '2024-01-15',
+    required: false,
+  })
+  @IsOptional()
+  @IsDateString()
+  date_debut?: Date;
+
+  @ApiProperty({
+    description: 'Date de fin du contrat',
+    example: '2025-01-15',
+    required: false,
+  })
+  @IsOptional()
+  @IsDateString()
+  date_fin?: Date;
+
+  @ApiProperty({
+    description: 'Salaire de référence',
+    example: 50000.00,
+    required: false,
+  })
+  @IsNumber()
+  @IsOptional()
+  salaire_reference?: number;
+
+  @ApiProperty({
+    description: 'URL du contrat (fichier PDF)',
+    example: 'https://example.com/contrat.pdf',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  url_contrat?: string;
+
+  @ApiProperty({
+    description: 'Statut du contrat',
+    example: 'Actif',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  statut?: string;
+}
+
+export class CreatePaieDto {
+  @ApiProperty({
+    description: 'Mois de la paie',
+    example: 1,
+    minimum: 1,
+    maximum: 12,
+  })
+  @IsInt()
+  @MinValidator(1)
+  @Max(12)
+  @IsNotEmpty()
+  mois: number;
+
+  @ApiProperty({
+    description: 'Année de la paie',
+    example: 2024,
+    minimum: 2000,
+  })
+  @IsInt()
+  @MinValidator(2000)
+  @IsNotEmpty()
+  annee: number;
+
+  @ApiProperty({
+    description: 'Salaire net',
+    example: 3500.00,
+  })
+  @IsNumber()
+  @IsNotEmpty()
+  salaire_net: number;
+
+  @ApiProperty({
+    description: 'Salaire brut',
+    example: 4500.00,
+  })
+  @IsNumber()
+  @IsNotEmpty()
+  salaire_brut: number;
+
+  @ApiProperty({
+    description: 'Primes',
+    example: 500.00,
+    required: false,
+  })
+  @IsNumber()
+  @IsOptional()
+  primes?: number;
+
+  @ApiProperty({
+    description: 'Déductions',
+    example: 200.00,
+    required: false,
+  })
+  @IsNumber()
+  @IsOptional()
+  deductions?: number;
+
+  @ApiProperty({
+    description: 'URL du bulletin de paie (fichier PDF)',
+    example: 'https://example.com/bulletin.pdf',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  url_bulletin?: string;
+
+  @ApiProperty({
+    description: 'ID du personnel',
+    example: 'uuid-du-personnel',
+  })
+  @IsUUID()
+  @IsNotEmpty()
+  id_personnel: string;
+}
+
+export class UpdatePaieDto {
+  @ApiProperty({
+    description: 'Mois de la paie',
+    example: 1,
+    minimum: 1,
+    maximum: 12,
+    required: false,
+  })
+  @IsInt()
+  @MinValidator(1)
+  @Max(12)
+  @IsOptional()
+  mois?: number;
+
+  @ApiProperty({
+    description: 'Année de la paie',
+    example: 2024,
+    minimum: 2000,
+    required: false,
+  })
+  @IsInt()
+  @MinValidator(2000)
+  @IsOptional()
+  annee?: number;
+
+  @ApiProperty({
+    description: 'Salaire net',
+    example: 3500.00,
+    required: false,
+  })
+  @IsNumber()
+  @IsOptional()
+  salaire_net?: number;
+
+  @ApiProperty({
+    description: 'Salaire brut',
+    example: 4500.00,
+    required: false,
+  })
+  @IsNumber()
+  @IsOptional()
+  salaire_brut?: number;
+
+  @ApiProperty({
+    description: 'Primes',
+    example: 500.00,
+    required: false,
+  })
+  @IsNumber()
+  @IsOptional()
+  primes?: number;
+
+  @ApiProperty({
+    description: 'Déductions',
+    example: 200.00,
+    required: false,
+  })
+  @IsNumber()
+  @IsOptional()
+  deductions?: number;
+
+  @ApiProperty({
+    description: 'URL du bulletin de paie (fichier PDF)',
+    example: 'https://example.com/bulletin.pdf',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  url_bulletin?: string;
+}
+
+export class CreatePersonnelDocumentDto {
+  @ApiProperty({
+    description: 'Type de document',
+    example: 'CNI',
+    enum: ['CNI', 'CONTRAT', 'DIPLOME', 'ATTestation'],
+  })
+  @IsEnum(['CNI', 'CONTRAT', 'DIPLOME', 'ATTestation'])
+  @IsNotEmpty()
+  type_document: 'CNI' | 'CONTRAT' | 'DIPLOME' | 'ATTestation';
+
+  @ApiProperty({
+    description: 'URL du document (fichier PDF, image, etc.)',
+    example: 'https://example.com/document.pdf',
+  })
+  @IsString()
+  @IsNotEmpty()
+  url_document: string;
+
+  @ApiProperty({
+    description: 'ID du personnel',
+    example: 'uuid-du-personnel',
+  })
+  @IsUUID()
+  @IsNotEmpty()
+  id_personnel: string;
+}
+
+export class UpdatePersonnelDocumentDto {
+  @ApiProperty({
+    description: 'Type de document',
+    example: 'CNI',
+    enum: ['CNI', 'CONTRAT', 'DIPLOME', 'ATTestation'],
+    required: false,
+  })
+  @IsEnum(['CNI', 'CONTRAT', 'DIPLOME', 'ATTestation'])
+  @IsOptional()
+  type_document?: 'CNI' | 'CONTRAT' | 'DIPLOME' | 'ATTestation';
+
+  @ApiProperty({
+    description: 'URL du document (fichier PDF, image, etc.)',
+    example: 'https://example.com/document.pdf',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  url_document?: string;
 }
 
