@@ -339,13 +339,82 @@ export class RhController {
   // Paies
   // -----------------------------
   @Post('paies')
-  @ApiOperation({ summary: 'Créer une nouvelle paie' })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB max
+      },
+      fileFilter: (req, file, cb) => {
+        if (file.mimetype === 'application/pdf') {
+          cb(null, true);
+        } else {
+          cb(new BadRequestException('Seuls les fichiers PDF sont autorisés'), false);
+        }
+      },
+    }),
+  )
+  @ApiOperation({ summary: 'Créer une nouvelle paie avec fichier PDF du bulletin' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['mois', 'annee', 'salaire_net', 'salaire_brut', 'id_personnel', 'file'],
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Fichier PDF du bulletin de paie',
+        },
+        mois: {
+          type: 'number',
+          description: 'Mois de la paie (1-12)',
+          example: 1,
+        },
+        annee: {
+          type: 'number',
+          description: 'Année de la paie',
+          example: 2024,
+        },
+        salaire_net: {
+          type: 'number',
+          description: 'Salaire net',
+          example: 3500.00,
+        },
+        salaire_brut: {
+          type: 'number',
+          description: 'Salaire brut',
+          example: 4500.00,
+        },
+        primes: {
+          type: 'number',
+          description: 'Primes (optionnel)',
+          example: 500.00,
+        },
+        deductions: {
+          type: 'number',
+          description: 'Déductions (optionnel)',
+          example: 200.00,
+        },
+        id_personnel: {
+          type: 'string',
+          format: 'uuid',
+          description: 'ID du personnel',
+        },
+      },
+    },
+  })
   @ApiResponse({ status: 201, description: 'Paie créée avec succès' })
   @ApiResponse({ status: 404, description: 'Personnel non trouvé' })
   @ApiResponse({ status: 400, description: 'Données invalides ou paie déjà existante' })
-  async createPaie(@Body() dto: CreatePaieDto) {
+  async createPaie(
+    @Body() dto: CreatePaieDto,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Le fichier PDF du bulletin de paie est requis');
+    }
     this.logger.log(`Création d'une paie pour le personnel ${dto.id_personnel}`);
-    return this.rhService.createPaie(dto);
+    return this.rhService.createPaie(dto, file);
   }
 
   @Get('paies')
@@ -405,13 +474,58 @@ export class RhController {
   // Documents du Personnel
   // -----------------------------
   @Post('personnels/documents')
-  @ApiOperation({ summary: 'Créer un nouveau document pour un personnel' })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB max
+      },
+      fileFilter: (req, file, cb) => {
+        const allowedMimes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
+        if (allowedMimes.includes(file.mimetype)) {
+          cb(null, true);
+        } else {
+          cb(new BadRequestException('Seuls les fichiers PDF, JPEG, JPG et PNG sont autorisés'), false);
+        }
+      },
+    }),
+  )
+  @ApiOperation({ summary: 'Créer un nouveau document pour un personnel avec fichier' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['type_document', 'id_personnel', 'file'],
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Fichier du document (PDF, JPEG, PNG)',
+        },
+        type_document: {
+          type: 'string',
+          enum: ['CNI', 'CONTRAT', 'DIPLOME', 'ATTestation'],
+          description: 'Type de document',
+        },
+        id_personnel: {
+          type: 'string',
+          format: 'uuid',
+          description: 'ID du personnel',
+        },
+      },
+    },
+  })
   @ApiResponse({ status: 201, description: 'Document créé avec succès' })
   @ApiResponse({ status: 404, description: 'Personnel non trouvé' })
-  @ApiResponse({ status: 400, description: 'Données invalides' })
-  async createPersonnelDocument(@Body() dto: CreatePersonnelDocumentDto) {
+  @ApiResponse({ status: 400, description: 'Données invalides ou fichier invalide' })
+  async createPersonnelDocument(
+    @Body() dto: CreatePersonnelDocumentDto,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Le fichier du document est requis');
+    }
     this.logger.log(`Création d'un document pour le personnel ${dto.id_personnel}`);
-    return this.rhService.createPersonnelDocument(dto);
+    return this.rhService.createPersonnelDocument(dto, file);
   }
 
   @Get('personnels/documents')

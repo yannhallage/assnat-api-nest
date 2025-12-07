@@ -348,65 +348,52 @@ export class RhService {
     const personnel = await this.prisma.personnel.findUnique({
       where: { id_personnel: dto.id_personnel },
     });
-
+  
     if (!personnel) {
       throw new NotFoundException('Personnel non trouvé');
     }
-
-    // Vérifier que la date de fin est après la date de début si fournie
-    if (dto.date_fin && dto.date_fin <= dto.date_debut) {
-      throw new BadRequestException('La date de fin doit être postérieure à la date de début');
+  
+    // Vérifier que la date de début est fournie
+    if (!dto.date_debut) {
+      throw new BadRequestException('La date de début est obligatoire');
     }
-
+  
+    // Convertir les dates en objets Date valides
+    const dateDebut = new Date(dto.date_debut);
+    let dateFin: Date | null = null;
+    if (dto.date_fin) {
+      dateFin = new Date(dto.date_fin);
+      if (dateFin <= dateDebut) {
+        throw new BadRequestException('La date de fin doit être postérieure à la date de début');
+      }
+    }
+  
     // Vérifier que le fichier est fourni
     if (!file) {
       throw new BadRequestException('Le fichier PDF du contrat est requis');
     }
-
-    // Uploader le fichier sur GitHub dans le dossier "contrats"
-    let urlContrat: string | null = null;
+  
+    // Uploader le fichier sur GitHub
+    let urlContrat: string;
     try {
       this.logger.log(`Upload du fichier contrat pour le personnel ${dto.id_personnel}`);
-      // urlContrat = await this.uploaderService.uploadPdfToGitHub(file, 'contrats');
       urlContrat = await this.uploaderService.uploadPdfToGitHub(file);
       this.logger.log(`Fichier uploadé avec succès: ${urlContrat}`);
     } catch (error: any) {
       this.logger.error(`Erreur lors de l'upload du fichier: ${error.message}`);
       throw new BadRequestException(`Erreur lors de l'upload du fichier: ${error.message}`);
     }
-
-    this.logger.log(`Date de début: ${dto.date_debut}`);
-    this.logger.log(`Date de fin: ${dto.date_fin}`);
-    this.logger.log(`Salaire de référence: ${dto.salaire_reference}`);
-    this.logger.log(`Statut: ${dto.statut}`);
-    this.logger.log(`ID du personnel: ${dto.id_personnel}`);
-    this.logger.log(`URL du contrat: ${urlContrat}`);
-    
-    // Convertir les types pour s'assurer qu'ils correspondent au schéma Prisma
-    // Les dates arrivent comme strings depuis le DTO, on les utilise directement
-    const dateDebut = String(dto.date_debut).trim();
-    
-    let dateFin: string | null = null;
-    if (dto.date_fin && String(dto.date_fin).trim() !== '') {
-      dateFin = String(dto.date_fin).trim();
-    }
-    
+  
     // Gérer salaire_reference - convertir en number ou null
     let salaireReference: number | null = null;
     if (dto.salaire_reference !== undefined && dto.salaire_reference !== null) {
-      const value = typeof dto.salaire_reference === 'string' 
-        ? dto.salaire_reference.trim() 
-        : String(dto.salaire_reference);
-      
-      if (value !== '') {
-        const parsed = parseFloat(value);
-        if (!isNaN(parsed)) {
-          salaireReference = parsed;
-        }
+      const parsed = Number(dto.salaire_reference);
+      if (!isNaN(parsed)) {
+        salaireReference = parsed;
       }
     }
-    
-    // Construire l'objet data pour Prisma - inclure tous les champs même optionnels
+  
+    // Construire l'objet data pour Prisma
     const contratData = {
       type_contrat: dto.type_contrat,
       date_debut: dateDebut,
@@ -416,11 +403,11 @@ export class RhService {
       statut: dto.statut || 'Actif',
       id_personnel: dto.id_personnel,
     };
-    
+  
     // Log des données avant création
     this.logger.log(`Données du contrat à créer: ${JSON.stringify(contratData)}`);
-    
-    // Créer le contrat avec l'URL du fichier uploadé
+  
+    // Créer le contrat avec Prisma
     try {
       const contrat = await this.prisma.contrat.create({
         data: contratData,
@@ -428,15 +415,15 @@ export class RhService {
       });
       this.logger.log(`Contrat créé avec succès`);
       return contrat;
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Erreur lors de la création du contrat: ${error.message}`);
-      this.logger.error(`Stack trace: ${error.stack}`);
       if (error.meta) {
         this.logger.error(`Détails Prisma: ${JSON.stringify(error.meta)}`);
       }
       throw new BadRequestException(`Erreur lors de la création du contrat: ${error.message}`);
     }
   }
+  
 
   async getAllContrats() {
     return this.prisma.contrat.findMany({
@@ -523,7 +510,7 @@ export class RhService {
   // -----------------------------
   // Paies
   // -----------------------------
-  async createPaie(dto: CreatePaieDto) {
+  async createPaie(dto: CreatePaieDto, file: Express.Multer.File) {
     // Vérifier que le personnel existe
     const personnel = await this.prisma.personnel.findUnique({
       where: { id_personnel: dto.id_personnel },
@@ -546,19 +533,69 @@ export class RhService {
       throw new BadRequestException(`Une paie existe déjà pour ce personnel pour le mois ${dto.mois}/${dto.annee}`);
     }
 
-    return this.prisma.paie.create({
-      data: {
-        mois: dto.mois,
-        annee: dto.annee,
-        salaire_net: dto.salaire_net,
-        salaire_brut: dto.salaire_brut,
-        primes: dto.primes,
-        deductions: dto.deductions,
-        url_bulletin: dto.url_bulletin,
-        id_personnel: dto.id_personnel,
-      },
-      include: { personnel: true },
-    });
+    // Vérifier que le fichier est fourni
+    if (!file) {
+      throw new BadRequestException('Le fichier PDF du bulletin de paie est requis');
+    }
+
+    // Uploader le fichier sur GitHub
+    let urlBulletin: string;
+    try {
+      this.logger.log(`Upload du fichier bulletin de paie pour le personnel ${dto.id_personnel}`);
+      urlBulletin = await this.uploaderService.uploadPdfToGitHub(file);
+      this.logger.log(`Fichier uploadé avec succès: ${urlBulletin}`);
+    } catch (error: any) {
+      this.logger.error(`Erreur lors de l'upload du fichier: ${error.message}`);
+      throw new BadRequestException(`Erreur lors de l'upload du fichier: ${error.message}`);
+    }
+
+    // Gérer primes et deductions - convertir en number ou null
+    let primes: number | null = null;
+    if (dto.primes !== undefined && dto.primes !== null) {
+      const parsed = Number(dto.primes);
+      if (!isNaN(parsed)) {
+        primes = parsed;
+      }
+    }
+
+    let deductions: number | null = null;
+    if (dto.deductions !== undefined && dto.deductions !== null) {
+      const parsed = Number(dto.deductions);
+      if (!isNaN(parsed)) {
+        deductions = parsed;
+      }
+    }
+
+    // Construire l'objet data pour Prisma
+    const paieData = {
+      mois: dto.mois,
+      annee: dto.annee,
+      salaire_net: Number(dto.salaire_net),
+      salaire_brut: Number(dto.salaire_brut),
+      primes: primes,
+      deductions: deductions,
+      url_bulletin: urlBulletin,
+      id_personnel: dto.id_personnel,
+    };
+
+    // Log des données avant création
+    this.logger.log(`Données de la paie à créer: ${JSON.stringify(paieData)}`);
+
+    // Créer la paie avec Prisma
+    try {
+      const paie = await this.prisma.paie.create({
+        data: paieData,
+        include: { personnel: true },
+      });
+      this.logger.log(`Paie créée avec succès`);
+      return paie;
+    } catch (error: any) {
+      this.logger.error(`Erreur lors de la création de la paie: ${error.message}`);
+      if (error.meta) {
+        this.logger.error(`Détails Prisma: ${JSON.stringify(error.meta)}`);
+      }
+      throw new BadRequestException(`Erreur lors de la création de la paie: ${error.message}`);
+    }
   }
 
   async getAllPaies() {
@@ -669,7 +706,7 @@ export class RhService {
   // -----------------------------
   // Documents du Personnel
   // -----------------------------
-  async createPersonnelDocument(dto: CreatePersonnelDocumentDto) {
+  async createPersonnelDocument(dto: CreatePersonnelDocumentDto, file: Express.Multer.File) {
     // Vérifier que le personnel existe
     const personnel = await this.prisma.personnel.findUnique({
       where: { id_personnel: dto.id_personnel },
@@ -679,14 +716,47 @@ export class RhService {
       throw new NotFoundException('Personnel non trouvé');
     }
 
-    return this.prisma.personnelDocument.create({
-      data: {
-        type_document: dto.type_document,
-        url_document: dto.url_document,
-        id_personnel: dto.id_personnel,
-      },
-      include: { personnel: true },
-    });
+    // Vérifier que le fichier est fourni
+    if (!file) {
+      throw new BadRequestException('Le fichier du document est requis');
+    }
+
+    // Uploader le fichier sur GitHub
+    let urlDocument: string;
+    try {
+      this.logger.log(`Upload du fichier document pour le personnel ${dto.id_personnel}`);
+      urlDocument = await this.uploaderService.uploadFileToGitHubGeneric(file);
+      this.logger.log(`Fichier uploadé avec succès: ${urlDocument}`);
+    } catch (error: any) {
+      this.logger.error(`Erreur lors de l'upload du fichier: ${error.message}`);
+      throw new BadRequestException(`Erreur lors de l'upload du fichier: ${error.message}`);
+    }
+
+    // Construire l'objet data pour Prisma
+    const documentData = {
+      type_document: dto.type_document,
+      url_document: urlDocument,
+      id_personnel: dto.id_personnel,
+    };
+
+    // Log des données avant création
+    this.logger.log(`Données du document à créer: ${JSON.stringify(documentData)}`);
+
+    // Créer le document avec Prisma
+    try {
+      const document = await this.prisma.personnelDocument.create({
+        data: documentData,
+        include: { personnel: true },
+      });
+      this.logger.log(`Document créé avec succès`);
+      return document;
+    } catch (error: any) {
+      this.logger.error(`Erreur lors de la création du document: ${error.message}`);
+      if (error.meta) {
+        this.logger.error(`Détails Prisma: ${JSON.stringify(error.meta)}`);
+      }
+      throw new BadRequestException(`Erreur lors de la création du document: ${error.message}`);
+    }
   }
 
   async getAllPersonnelDocuments() {

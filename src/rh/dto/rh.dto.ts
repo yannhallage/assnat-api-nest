@@ -833,15 +833,6 @@ export class CreatePaieDto {
   deductions?: number;
 
   @ApiProperty({
-    description: 'URL du bulletin de paie (fichier PDF)',
-    example: 'https://example.com/bulletin.pdf',
-    required: false,
-  })
-  @IsString()
-  @IsOptional()
-  url_bulletin?: string;
-
-  @ApiProperty({
     description: 'ID du personnel',
     example: 'uuid-du-personnel',
   })
@@ -930,14 +921,6 @@ export class CreatePersonnelDocumentDto {
   @IsEnum(['CNI', 'CONTRAT', 'DIPLOME', 'ATTestation'])
   @IsNotEmpty()
   type_document: 'CNI' | 'CONTRAT' | 'DIPLOME' | 'ATTestation';
-
-  @ApiProperty({
-    description: 'URL du document (fichier PDF, image, etc.)',
-    example: 'https://example.com/document.pdf',
-  })
-  @IsString()
-  @IsNotEmpty()
-  url_document: string;
 
   @ApiProperty({
     description: 'ID du personnel',

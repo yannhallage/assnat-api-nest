@@ -112,9 +112,13 @@ export class UploaderService {
   //   }
   // }
 
-  async uploadPdfToGitHub(file: Express.Multer.File): Promise<string> {
+  /**
+   * Upload un fichier sur GitHub (méthode générique)
+   * @param file - Le fichier à uploader
+   * @returns L'URL du fichier sur GitHub
+   */
+  private async uploadFileToGitHub(file: Express.Multer.File, messagePrefix: string = 'Upload'): Promise<string> {
     if (!file) throw new BadRequestException('Aucun fichier fourni');
-    if (file.mimetype !== 'application/pdf') throw new BadRequestException('Le fichier doit être un PDF');
     if (!this.githubToken) throw new BadRequestException('GITHUB_TOKEN manquant. Vérifiez les variables d\'environnement.');
   
     try {
@@ -140,7 +144,7 @@ export class UploaderService {
   
       const apiUrl = `https://api.github.com/repos/${this.githubOwner}/${this.githubRepo}/contents/${filePath}`;
       const body: any = {
-        message: `Upload PDF: ${fileName}`,
+        message: `${messagePrefix}: ${fileName}`,
         content,
         branch: this.githubBranch,
       };
@@ -173,6 +177,20 @@ export class UploaderService {
       if (error instanceof BadRequestException) throw error;
       throw new BadRequestException(`Erreur lors de l'upload: ${error.message}`);
     }
+  }
+
+  async uploadPdfToGitHub(file: Express.Multer.File): Promise<string> {
+    if (file.mimetype !== 'application/pdf') throw new BadRequestException('Le fichier doit être un PDF');
+    return this.uploadFileToGitHub(file, 'Upload PDF');
+  }
+
+  /**
+   * Upload un fichier générique sur GitHub (PDF, images, etc.)
+   * @param file - Le fichier à uploader
+   * @returns L'URL du fichier sur GitHub
+   */
+  async uploadFileToGitHubGeneric(file: Express.Multer.File): Promise<string> {
+    return this.uploadFileToGitHub(file, 'Upload fichier');
   }
   
   /**

@@ -176,6 +176,7 @@ model Paie {
   personnel        Personnel @relation(fields: [id_personnel], references: [id_personnel])
 
   date_creation    DateTime  @default(now())
+  bulletins     BulletinPaie[]
 
   @@map("paies")
 }
@@ -226,6 +227,17 @@ model Notification {
   demande          Demande?  @relation(fields: [id_demande], references: [id_demande])
 
   @@map("notifications")
+}
+
+model BulletinPaie {
+  id_bulletin      String   @id @default(uuid())
+  id_paie          String
+  paie             Paie     @relation(fields: [id_paie], references: [id_paie])
+  url_pdf          String   // lien vers le fichier PDF
+  date_emission    DateTime @default(now())
+  note_rh          String?  // remarque optionnelle du RH
+
+  @@map("bulletins_paie")
 }
 
 enum StatutDemande {
