@@ -7,9 +7,10 @@ import { ChefdeserviceModule } from './chefdeservice/chefdeservice.module';
 import { AuthModule } from './auth/auth.module';
 import { NotificationModule } from './shared/notification/notification.module';
 import { UploaderModule } from './shared/uploader/uploader.module';
+import { ComptabiliteModule } from './comptabilite/comptabilite.module';
 
 @Module({
-  imports: [UserModule, RhModule, ChefdeserviceModule, AuthModule, NotificationModule, UploaderModule],
+  imports: [UserModule, RhModule, ChefdeserviceModule, AuthModule, NotificationModule, UploaderModule, ComptabiliteModule],
   controllers: [AppController],
   providers: [AppService],
 })

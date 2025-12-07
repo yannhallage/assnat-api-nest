@@ -76,6 +76,27 @@ export class RhService {
 
     return await prisma.$transaction(async (tx) => {
       try {
+        // 0️⃣ Vérification de l'unicité de l'email
+        if (dto.email_personnel) {
+          const existingPersonnelByEmail = await tx.personnel.findUnique({
+            where: { email_personnel: dto.email_personnel },
+          });
+
+          if (existingPersonnelByEmail) {
+            throw new BadRequestException(`L'email personnel ${dto.email_personnel} est déjà utilisé par un autre personnel`);
+          }
+        }
+
+        if (dto.email_travail) {
+          const existingPersonnelByEmailTravail = await tx.personnel.findUnique({
+            where: { email_travail: dto.email_travail },
+          });
+
+          if (existingPersonnelByEmailTravail) {
+            throw new BadRequestException(`L'email de travail ${dto.email_travail} est déjà utilisé par un autre personnel`);
+          }
+        }
+
         // 1️⃣ Détermination du mot de passe
         const sanitizeName = (value?: string) =>
           (value ?? '')
@@ -161,6 +182,10 @@ export class RhService {
         return { success: true, id: personnel.id_personnel };
       } catch (error) {
         this.logger.error(`🚨 Erreur lors de la création du personnel: ${error.message}`);
+        // Si c'est déjà une BadRequestException, on la relance telle quelle
+        if (error instanceof BadRequestException) {
+          throw error;
+        }
         throw new BadRequestException('Impossible de créer le personnel');
       }
     });

@@ -77,6 +77,9 @@
         case 'CHEF_SERVICE':
           redirect = 'chef';
           break;
+        case 'COMPTA_ADMIN':
+          redirect = 'compta_admin';
+          break;
         default:
           redirect = 'employe';
       }
