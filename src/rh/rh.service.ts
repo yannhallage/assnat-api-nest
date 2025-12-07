@@ -9,6 +9,7 @@ import { CreateAlertDto } from './dto/create-alert.dto';
 import { EmailService } from 'src/shared/mail/mail.service';
 import { CreateTypeCongeDto } from './dto/create-type-conge.dto';
 import { UpdatePersonnelDto } from './dto/rh.dto';
+import { UploaderService } from '../shared/uploader/uploader.service';
 
 @Injectable()
 export class RhService {
@@ -17,6 +18,7 @@ export class RhService {
   constructor(
     private prisma: PrismaService,
     private emailService: EmailService,
+    private uploaderService: UploaderService,
   ) { }
 
   // -----------------------------
@@ -135,7 +137,7 @@ export class RhService {
           <p>Veuillez modifier votre mot de passe après la première connexion.</p>
           <p>Cordialement,<br>L’équipe RH</p>
         `;
-        
+
         } else {
           subject = 'Bienvenue dans le système de gestion des congés';
           message = `
@@ -239,7 +241,7 @@ export class RhService {
     this.logger.log(`Alerte créée : ${JSON.stringify(dto)}`);
     return { message: 'Alerte créée', data: dto };
   }
-  
+
   // -----------------------------
   // type de congés
   // -----------------------------
@@ -279,6 +281,33 @@ export class RhService {
   }
 
   // -----------------------------
+  // Historique des demandes (REFUSEE, APPROUVEE, TERMINEE)
+  // -----------------------------
+  async getHistoriqueDemandes() {
+    return this.prisma.demande.findMany({
+      where: {
+        statut_demande: {
+          in: ['REFUSEE', 'APPROUVEE', 'TERMINEE'],
+        },
+      },
+      include: {
+        periodeConge: {
+          include: { typeConge: true },
+        },
+        service: true,
+        personnel: true,
+        chefService: true,
+        discussions: {
+          orderBy: { date_message: 'desc' },
+          take: 5, // Limiter à 5 dernières discussions
+        },
+        ficheDeConge: true,
+      },
+      orderBy: { date_demande: 'desc' },
+    });
+  }
+
+  // -----------------------------
   // Interactions RH
   // -----------------------------
   async createInteractionRh(dto: CreateInteractionRhDto) {
@@ -314,7 +343,7 @@ export class RhService {
   // -----------------------------
   // Contrats
   // -----------------------------
-  async createContrat(dto: CreateContratDto) {
+  async createContrat(dto: CreateContratDto, file: Express.Multer.File) {
     // Vérifier que le personnel existe
     const personnel = await this.prisma.personnel.findUnique({
       where: { id_personnel: dto.id_personnel },
@@ -325,22 +354,88 @@ export class RhService {
     }
 
     // Vérifier que la date de fin est après la date de début si fournie
-    if (dto.date_fin && new Date(dto.date_fin) <= new Date(dto.date_debut)) {
+    if (dto.date_fin && dto.date_fin <= dto.date_debut) {
       throw new BadRequestException('La date de fin doit être postérieure à la date de début');
     }
 
-    return this.prisma.contrat.create({
-      data: {
-        type_contrat: dto.type_contrat,
-        date_debut: new Date(dto.date_debut),
-        date_fin: dto.date_fin ? new Date(dto.date_fin) : null,
-        salaire_reference: dto.salaire_reference,
-        url_contrat: dto.url_contrat,
-        statut: dto.statut || 'Actif',
-        id_personnel: dto.id_personnel,
-      },
-      include: { personnel: true },
-    });
+    // Vérifier que le fichier est fourni
+    if (!file) {
+      throw new BadRequestException('Le fichier PDF du contrat est requis');
+    }
+
+    // Uploader le fichier sur GitHub dans le dossier "contrats"
+    let urlContrat: string | null = null;
+    try {
+      this.logger.log(`Upload du fichier contrat pour le personnel ${dto.id_personnel}`);
+      // urlContrat = await this.uploaderService.uploadPdfToGitHub(file, 'contrats');
+      urlContrat = await this.uploaderService.uploadPdfToGitHub(file);
+      this.logger.log(`Fichier uploadé avec succès: ${urlContrat}`);
+    } catch (error: any) {
+      this.logger.error(`Erreur lors de l'upload du fichier: ${error.message}`);
+      throw new BadRequestException(`Erreur lors de l'upload du fichier: ${error.message}`);
+    }
+
+    this.logger.log(`Date de début: ${dto.date_debut}`);
+    this.logger.log(`Date de fin: ${dto.date_fin}`);
+    this.logger.log(`Salaire de référence: ${dto.salaire_reference}`);
+    this.logger.log(`Statut: ${dto.statut}`);
+    this.logger.log(`ID du personnel: ${dto.id_personnel}`);
+    this.logger.log(`URL du contrat: ${urlContrat}`);
+    
+    // Convertir les types pour s'assurer qu'ils correspondent au schéma Prisma
+    // Les dates arrivent comme strings depuis le DTO, on les utilise directement
+    const dateDebut = String(dto.date_debut).trim();
+    
+    let dateFin: string | null = null;
+    if (dto.date_fin && String(dto.date_fin).trim() !== '') {
+      dateFin = String(dto.date_fin).trim();
+    }
+    
+    // Gérer salaire_reference - convertir en number ou null
+    let salaireReference: number | null = null;
+    if (dto.salaire_reference !== undefined && dto.salaire_reference !== null) {
+      const value = typeof dto.salaire_reference === 'string' 
+        ? dto.salaire_reference.trim() 
+        : String(dto.salaire_reference);
+      
+      if (value !== '') {
+        const parsed = parseFloat(value);
+        if (!isNaN(parsed)) {
+          salaireReference = parsed;
+        }
+      }
+    }
+    
+    // Construire l'objet data pour Prisma - inclure tous les champs même optionnels
+    const contratData = {
+      type_contrat: dto.type_contrat,
+      date_debut: dateDebut,
+      date_fin: dateFin,
+      salaire_reference: salaireReference,
+      url_contrat: urlContrat,
+      statut: dto.statut || 'Actif',
+      id_personnel: dto.id_personnel,
+    };
+    
+    // Log des données avant création
+    this.logger.log(`Données du contrat à créer: ${JSON.stringify(contratData)}`);
+    
+    // Créer le contrat avec l'URL du fichier uploadé
+    try {
+      const contrat = await this.prisma.contrat.create({
+        data: contratData,
+        include: { personnel: true },
+      });
+      this.logger.log(`Contrat créé avec succès`);
+      return contrat;
+    } catch (error) {
+      this.logger.error(`Erreur lors de la création du contrat: ${error.message}`);
+      this.logger.error(`Stack trace: ${error.stack}`);
+      if (error.meta) {
+        this.logger.error(`Détails Prisma: ${JSON.stringify(error.meta)}`);
+      }
+      throw new BadRequestException(`Erreur lors de la création du contrat: ${error.message}`);
+    }
   }
 
   async getAllContrats() {
@@ -390,8 +485,8 @@ export class RhService {
     }
 
     // Vérifier que la date de fin est après la date de début si fournie
-    const dateDebut = dto.date_debut ? new Date(dto.date_debut) : contrat.date_debut;
-    const dateFin = dto.date_fin ? new Date(dto.date_fin) : contrat.date_fin;
+    const dateDebut = dto.date_debut || contrat.date_debut;
+    const dateFin = dto.date_fin !== undefined ? dto.date_fin : contrat.date_fin;
 
     if (dateFin && dateFin <= dateDebut) {
       throw new BadRequestException('La date de fin doit être postérieure à la date de début');
@@ -401,8 +496,8 @@ export class RhService {
       where: { id_contrat: id },
       data: {
         type_contrat: dto.type_contrat,
-        date_debut: dto.date_debut ? new Date(dto.date_debut) : undefined,
-        date_fin: dto.date_fin !== undefined ? (dto.date_fin ? new Date(dto.date_fin) : null) : undefined,
+        date_debut: dto.date_debut,
+        date_fin: dto.date_fin !== undefined ? (dto.date_fin || null) : undefined,
         salaire_reference: dto.salaire_reference,
         url_contrat: dto.url_contrat,
         statut: dto.statut,

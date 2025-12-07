@@ -147,8 +147,9 @@ model Discussion {
 model Contrat {
   id_contrat       String       @id @default(uuid())
   type_contrat     TypeContrat
-  date_debut       DateTime
-  date_fin         DateTime?
+  date_debut DateTime
+  date_fin   DateTime?
+
   salaire_reference Float?
   url_contrat      String?      // fichier PDF
   statut           String?      // Actif, Résilié, etc.

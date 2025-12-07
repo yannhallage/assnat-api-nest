@@ -1,5 +1,6 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, UseGuards, Logger } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Controller, Get, Post, Put, Delete, Param, Body, UseGuards, Logger, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiTags, ApiOperation, ApiResponse, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { RhService } from './rh.service';
 import {
   CreateDirectionDto,
@@ -171,11 +172,19 @@ export class RhController {
   // Consulter toutes les demandes
   // -----------------------------
   @Get('demandes')
-  @ApiOperation({ summary: 'Récupérer toutes les demandes de congé' })
-  @ApiResponse({ status: 200, description: 'Liste des demandes' })
+  @ApiOperation({ summary: 'Récupérer toutes les demandes de congé approuvées' })
+  @ApiResponse({ status: 200, description: 'Liste des demandes approuvées' })
   async getDemandes() {
-    this.logger.log('Récupération de toutes les demandes');
+    this.logger.log('Récupération de toutes les demandes approuvées');
     return this.rhService.consulterDemandes();
+  }
+
+  @Get('demandes/historique')
+  @ApiOperation({ summary: 'Récupérer l\'historique des demandes (REFUSEE, APPROUVEE, TERMINEE)' })
+  @ApiResponse({ status: 200, description: 'Liste des demandes historiques' })
+  async getHistoriqueDemandes() {
+    this.logger.log('Récupération de l\'historique des demandes');
+    return this.rhService.getHistoriqueDemandes();
   }
 
   // -----------------------------
@@ -210,13 +219,75 @@ export class RhController {
   // Contrats
   // -----------------------------
   @Post('contrats')
-  @ApiOperation({ summary: 'Créer un nouveau contrat' })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB max
+      },
+      fileFilter: (req, file, cb) => {
+        if (file.mimetype === 'application/pdf') {
+          cb(null, true);
+        } else {
+          cb(new BadRequestException('Seuls les fichiers PDF sont autorisés'), false);
+        }
+      },
+    }),
+  )
+  @ApiOperation({ summary: 'Créer un nouveau contrat avec fichier PDF' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['type_contrat', 'date_debut', 'id_personnel', 'file'],
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Fichier PDF du contrat',
+        },
+        type_contrat: {
+          type: 'string',
+          enum: ['CDI', 'CDD', 'STAGE', 'CONSULTANT'],
+          description: 'Type de contrat',
+        },
+        date_debut: {
+          type: 'string',
+          format: 'date',
+          description: 'Date de début du contrat',
+        },
+        date_fin: {
+          type: 'string',
+          format: 'date',
+          description: 'Date de fin du contrat (optionnel)',
+        },
+        salaire_reference: {
+          type: 'number',
+          description: 'Salaire de référence (optionnel)',
+        },
+        statut: {
+          type: 'string',
+          description: 'Statut du contrat (optionnel)',
+        },
+        id_personnel: {
+          type: 'string',
+          format: 'uuid',
+          description: 'ID du personnel',
+        },
+      },
+    },
+  })
   @ApiResponse({ status: 201, description: 'Contrat créé avec succès' })
   @ApiResponse({ status: 404, description: 'Personnel non trouvé' })
-  @ApiResponse({ status: 400, description: 'Données invalides' })
-  async createContrat(@Body() dto: CreateContratDto) {
+  @ApiResponse({ status: 400, description: 'Données invalides ou fichier invalide' })
+  async createContrat(
+    @Body() dto: CreateContratDto,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Le fichier PDF du contrat est requis');
+    }
     this.logger.log(`Création d'un contrat pour le personnel ${dto.id_personnel}`);
-    return this.rhService.createContrat(dto);
+    return this.rhService.createContrat(dto, file);
   }
 
   @Get('contrats')

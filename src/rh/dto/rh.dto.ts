@@ -680,7 +680,7 @@ export class CreateContratDto {
   })
   @IsDateString()
   @IsNotEmpty()
-  date_debut: Date;
+  date_debut: string;
 
   @ApiProperty({
     description: 'Date de fin du contrat',
@@ -689,7 +689,7 @@ export class CreateContratDto {
   })
   @IsOptional()
   @IsDateString()
-  date_fin?: Date;
+  date_fin?: string;
 
   @ApiProperty({
     description: 'Salaire de référence',
@@ -699,15 +699,6 @@ export class CreateContratDto {
   @IsNumber()
   @IsOptional()
   salaire_reference?: number;
-
-  @ApiProperty({
-    description: 'URL du contrat (fichier PDF)',
-    example: 'https://example.com/contrat.pdf',
-    required: false,
-  })
-  @IsString()
-  @IsOptional()
-  url_contrat?: string;
 
   @ApiProperty({
     description: 'Statut du contrat',
@@ -745,7 +736,7 @@ export class UpdateContratDto {
   })
   @IsOptional()
   @IsDateString()
-  date_debut?: Date;
+  date_debut?: string;
 
   @ApiProperty({
     description: 'Date de fin du contrat',
@@ -754,7 +745,7 @@ export class UpdateContratDto {
   })
   @IsOptional()
   @IsDateString()
-  date_fin?: Date;
+  date_fin?: string;
 
   @ApiProperty({
     description: 'Salaire de référence',
