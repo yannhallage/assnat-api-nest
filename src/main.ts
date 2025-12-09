@@ -80,6 +80,7 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('api/docs', app, document);
   logger.log('Swagger docs available at /api/docs');
+  logger.log('Health check available at /health');
 
   // -----------------------------
   // Lancement du serveur
