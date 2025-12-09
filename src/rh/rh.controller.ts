@@ -17,9 +17,9 @@ import {
   // CreateAlertDto,
 } from './dto/rh.dto';
 import { CreateTypeCongeDto } from './dto/create-type-conge.dto';
-import { RolesGuard } from 'src/shared/guards/roles.guard';
-// import { Roles } from 'src/shared/decorators/roles.decorator';
-import { JwtAuthGuard } from 'src/shared/guards/jwt-auth.guard';
+import { RolesGuard } from '../shared/guards/roles.guard';
+// import { Roles } from '../shared/decorators/roles.decorator';
+import { JwtAuthGuard } from '../shared/guards/jwt-auth.guard';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiTags('Ressources Humaines')

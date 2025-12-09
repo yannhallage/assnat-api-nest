@@ -9,9 +9,9 @@ import {
   UpdatePasswordDto,
   UpdatePersonalInfoDto,
 } from './dto/user.dto';
-import { RolesGuard } from 'src/shared/guards/roles.guard';
-import { Roles } from 'src/shared/decorators/roles.decorator';
-import { JwtAuthGuard } from 'src/shared/guards/jwt-auth.guard';
+import { RolesGuard } from '../shared/guards/roles.guard';
+import { Roles } from '../shared/decorators/roles.decorator';
+import { JwtAuthGuard } from '../shared/guards/jwt-auth.guard';
 
 @ApiTags('Utilisateur')
 @Controller('user')

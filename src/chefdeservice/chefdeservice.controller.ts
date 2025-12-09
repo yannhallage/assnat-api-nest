@@ -5,10 +5,10 @@ import { ApiTags, ApiOperation, ApiParam, ApiQuery, ApiBody, ApiResponse } from 
 import { ChefdeserviceService } from './chefdeservice.service';
 import { ApproveDemandeDto, RejectDemandeDto } from './dto/chef.dto';
 import type { Personnel } from '@prisma/client';
-import { CreateDiscussionDto } from 'src/user/dto/user.dto';
-import { RolesGuard } from 'src/shared/guards/roles.guard';
-import { Roles } from 'src/shared/decorators/roles.decorator';
-import { JwtAuthGuard } from 'src/shared/guards/jwt-auth.guard';
+import { CreateDiscussionDto } from '../user/dto/user.dto';
+import { RolesGuard } from '../shared/guards/roles.guard';
+import { Roles } from '../shared/decorators/roles.decorator';
+import { JwtAuthGuard } from '../shared/guards/jwt-auth.guard';
 type ChefWithRelations = Personnel & {
   service?: {
     nom_service: string;

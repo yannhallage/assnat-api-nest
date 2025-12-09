@@ -5,7 +5,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { PrismaService } from '../shared/prisma/prisma.service';
-import { JwtStrategy } from 'src/shared/guards/jwt.strategy';
+import { JwtStrategy } from '../shared/guards/jwt.strategy';
 
 @Module({
   imports: [

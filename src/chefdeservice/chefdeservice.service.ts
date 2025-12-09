@@ -3,11 +3,11 @@ import { Injectable, NotFoundException, BadRequestException, Logger, ForbiddenEx
 import { ApproveDemandeDto, RejectDemandeDto } from './dto/chef.dto';
 import type { Personnel } from '@prisma/client';
 import * as bcrypt from 'bcryptjs'
-import { PrismaService } from 'src/shared/prisma/prisma.service';
+import { PrismaService } from '../shared/prisma/prisma.service';
 import { EmailService } from '../shared/mail/mail.service';
-import { NotificationService } from 'src/shared/notification/notification.service';
+import { NotificationService } from '../shared/notification/notification.service';
 import { InvitePersonnelDto } from './dto/Inviter.dto';
-import { CreateDiscussionDto } from 'src/user/dto/user.dto';
+import { CreateDiscussionDto } from '../user/dto/user.dto';
 
 @Injectable()
 export class ChefdeserviceService {
