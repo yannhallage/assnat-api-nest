@@ -72,11 +72,32 @@ export class RhService {
    * Un email de bienvenue est envoyé.
    */
   async createPersonnel(dto: CreatePersonnelDto) {
-    const prisma = this.prisma;
+    try {
+      // 0️⃣ Détermination du mot de passe (avant la transaction)
+      const sanitizeName = (value?: string) =>
+        (value ?? '')
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^a-zA-Z0-9]/g, '')
+          .toLowerCase();
 
-    return await prisma.$transaction(async (tx) => {
-      try {
-        // 0️⃣ Vérification de l'unicité de l'email
+      const baseName = sanitizeName(dto.prenom_personnel) || sanitizeName(dto.nom_personnel);
+
+      if (!baseName) {
+        throw new BadRequestException('Le prénom ou le nom est requis pour générer le mot de passe');
+      }
+
+      const passwordToUse = `${baseName}@assnat.ci`;
+
+      if (dto.role_personnel === 'CHEF_SERVICE') {
+        this.logger.log(`🔐 Mot de passe auto-généré pour le chef de service`);
+      }
+
+      const hashedPassword = await bcrypt.hash(passwordToUse, 10);
+
+      // 1️⃣ Transaction Prisma - uniquement opérations DB
+      const result = await this.prisma.$transaction(async (tx) => {
+        // Vérification de l'unicité de l'email
         if (dto.email_personnel) {
           const existingPersonnelByEmail = await tx.personnel.findUnique({
             where: { email_personnel: dto.email_personnel },
@@ -97,29 +118,7 @@ export class RhService {
           }
         }
 
-        // 1️⃣ Détermination du mot de passe
-        const sanitizeName = (value?: string) =>
-          (value ?? '')
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/[^a-zA-Z0-9]/g, '')
-            .toLowerCase();
-
-        const baseName = sanitizeName(dto.prenom_personnel) || sanitizeName(dto.nom_personnel);
-
-        if (!baseName) {
-          throw new BadRequestException('Le prénom ou le nom est requis pour générer le mot de passe');
-        }
-
-        const passwordToUse = `${baseName}@assnat.ci`;
-
-        if (dto.role_personnel === 'CHEF_SERVICE') {
-          this.logger.log(`🔐 Mot de passe auto-généré pour le chef de service`);
-        }
-
-        const hashedPassword = await bcrypt.hash(passwordToUse, 10);
-
-        // 2️⃣ Création du personnel
+        // Création du personnel
         const personnel = await tx.personnel.create({
           data: {
             ...dto,
@@ -131,7 +130,7 @@ export class RhService {
 
         this.logger.log(`✅ Personnel créé : ${personnel.prenom_personnel} ${personnel.nom_personnel}`);
 
-        // 3️⃣ Si CHEF_SERVICE, mettre à jour la table service
+        // Si CHEF_SERVICE, mettre à jour la table service
         if (dto.role_personnel === 'CHEF_SERVICE') {
           await tx.service.update({
             where: { id_service: dto.id_service },
@@ -140,14 +139,23 @@ export class RhService {
           this.logger.log(`🔄 Service mis à jour avec id_chefdeservice = ${personnel.id_personnel}`);
         }
 
-        // 4️⃣ Préparation du contenu email
-        let subject: string;
-        let message: string;
-        const recipient = personnel.email_personnel!;
+        // Retourner les données nécessaires pour l'email (après la transaction)
+        return {
+          personnel,
+        };
+      });
 
-        if (dto.role_personnel === 'CHEF_SERVICE') {
-          subject = 'Création de votre compte Chef de Service';
-          message = `
+      // 2️⃣ Opérations externes APRÈS la transaction (email)
+      const { personnel } = result;
+
+      // Préparation du contenu email
+      let subject: string;
+      let message: string;
+      const recipient = personnel.email_personnel!;
+
+      if (dto.role_personnel === 'CHEF_SERVICE') {
+        subject = 'Création de votre compte Chef de Service';
+        message = `
           <p>Bonjour ${personnel.prenom_personnel} ${personnel.nom_personnel},</p>
           <p>Votre compte Chef de Service a été créé avec succès.</p>
           <p>Voici vos identifiants de connexion :</p>
@@ -156,39 +164,38 @@ export class RhService {
             <li><strong>Mot de passe :</strong> ${passwordToUse}</li>
           </ul>
           <p>Veuillez modifier votre mot de passe après la première connexion.</p>
-          <p>Cordialement,<br>L’équipe RH</p>
+          <p>Cordialement,<br>L'équipe RH</p>
         `;
-
-        } else {
-          subject = 'Bienvenue dans le système de gestion des congés';
-          message = `
+      } else {
+        subject = 'Bienvenue dans le système de gestion des congés';
+        message = `
           <p>Bonjour ${personnel.prenom_personnel} ${personnel.nom_personnel},</p>
           <p>Votre compte a été créé avec succès dans le système.</p>
           <p>Vous pouvez maintenant accéder à votre interface dédiée.</p>
-          <p>Cordialement,<br>L’équipe RH</p>
+          <p>Cordialement,<br>L'équipe RH</p>
         `;
-        }
+      }
 
-        // 5️⃣ Envoi d’email
+      // Envoi d'email (après la transaction pour éviter les erreurs d'email de bloquer la transaction)
+      if (recipient) {
         try {
           await this.emailService.sendNotificationEmail(recipient, subject, message);
           this.logger.log(`📩 Email envoyé à ${recipient}`);
-        } catch (emailError) {
-          this.logger.error(`❌ Erreur lors de l’envoi d’email: ${emailError.message}`);
-          throw new Error('Échec lors de l’envoi de l’email');
+        } catch (emailError: any) {
+          this.logger.error(`❌ Erreur lors de l'envoi d'email: ${emailError.message}`);
+          // Ne pas faire échouer l'opération si l'email échoue
         }
-
-        // 6️⃣ Retour succès
-        return { success: true, id: personnel.id_personnel };
-      } catch (error) {
-        this.logger.error(`🚨 Erreur lors de la création du personnel: ${error.message}`);
-        // Si c'est déjà une BadRequestException, on la relance telle quelle
-        if (error instanceof BadRequestException) {
-          throw error;
-        }
-        throw new BadRequestException('Impossible de créer le personnel');
       }
-    });
+
+      return { success: true, id: personnel.id_personnel };
+    } catch (error: any) {
+      this.logger.error(`🚨 Erreur lors de la création du personnel: ${error.message}`);
+      // Si c'est déjà une BadRequestException, on la relance telle quelle
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new BadRequestException('Impossible de créer le personnel');
+    }
   }
 
 
