@@ -36,7 +36,8 @@ async function bootstrap() {
   // -----------------------------
   app.use(helmet()); // sécurise les headers HTTP
   app.enableCors({
-    origin: process.env.CORS_ORIGIN?.split(',') || '*', // configurer pour ton front
+    //origin: process.env.CORS_ORIGIN?.split(',') || '*', // configurer pour ton front
+    origin:'*', // configurer pour ton front
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });
